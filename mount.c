@@ -1,11 +1,6 @@
 #include <stdlib.h>
 #include <sys/mount.h>
 
-/*
-mount -t tmpfs run /run
-       1  2    3   4
-*/
-
 int main(int argc, char *argv[]) {
 	/* the exit code */
 	int exit_code = EXIT_FAILURE;
