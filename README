@@ -1,0 +1,19 @@
+ _                             _   _ _
+| | __ _ _____   _       _   _| |_(_) |___
+| |/ _` |_  / | | |_____| | | | __| | / __|
+| | (_| |/ /| |_| |_____| |_| | |_| | \__ \
+|_|\__,_/___|\__, |      \__,_|\__|_|_|___/
+             |___/
+
+lazy-utils is a collection of tiny, permissively-licensed system utilities that
+do the absolute minimum required to achieve a security-hardened, fast and tiny,
+Linux embedded system.
+
+lazy-utils is meant to complement toybox (http://www.landley.net/toybox/) and
+provide a suckless (http://suckless.org/) alternative to
+BusyBox (http://www.busybox.net/).
+
+lazy-utils is licensed under a 2-clause BSD license, see COPYING for the license
+text. For a list of its authors and contributors, see AUTHORS.
+
+The ASCII art logo at the top was made using FIGlet (http://www.figlet.org/).
