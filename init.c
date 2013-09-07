@@ -14,7 +14,8 @@
 
 #define PRINT(x) (void) write(STDOUT_FILENO, x, sizeof(x))
 
-void signal_handler(int signal_type) {
+void _signal_handler(int type, siginfo_t *info, void *context) {
+	(void) waitpid(info->si_pid, NULL, WNOHANG);
 }
 
 bool _run_script(const char *path, pid_t *pid) {
@@ -70,13 +71,13 @@ int main() {
 	/* the command passed to reboot() */
 	int reboot_command;
 
-	/* assign signal handlers for SIGUSR1 and SIGUSR2 */
-	signal_action.sa_flags = 0;
-	signal_action.sa_handler = signal_handler;
+	/* assign a signal handler for SIGCHLD, which destroys zombie processes */
+	signal_action.sa_flags = SA_SIGINFO;
+	signal_action.sa_sigaction = _signal_handler;
 	if (-1 == sigemptyset(&signal_action.sa_mask))
 		goto end;
-	sigaction(SIGUSR1, &signal_action, NULL);
-	sigaction(SIGUSR2, &signal_action, NULL);
+	if (-1 == sigaction(SIGCHLD, &signal_action, NULL))
+		goto end;
 
 	/* block SIGUSR1 and SIGUSR2 signals */
 	(void) memcpy(&signal_mask, &signal_action.sa_mask, sizeof(signal_mask));
@@ -116,6 +117,7 @@ int main() {
 	}
 
 	/* flush all file systems */
+	PRINT("Flushing file system buffers\n");
 	sync();
 
 	/* reboot or shut down the system */
