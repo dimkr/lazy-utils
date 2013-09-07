@@ -89,7 +89,6 @@ int main() {
 		goto end;
 
 	/* run the init script */
-	PRINT("Running the init script\n");
 	if (false == _run_script(INIT_SCRIPT_PATH, &script_pid))
 		goto end;
 
@@ -135,6 +134,5 @@ int main() {
 	(void) reboot(reboot_command);
 
 end:
-	PRINT("Terminating init\n");
 	return exit_code;
 }
