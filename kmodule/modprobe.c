@@ -10,7 +10,7 @@ int main(int argc, char *argv[]) {
 		goto end;
 
 	/* load the kernel module and its dependencies, in reverse order */
-	if (false == kmodule_load(argv[1]))
+	if (false == kmodule_load(argv[1], NULL, true))
 		goto end;
 
 	/* report success */

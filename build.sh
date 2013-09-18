@@ -1,7 +1,9 @@
 BASE_DIR="$(pwd)"
-CFLAGS="-I$BASE_DIR/include $CFLAGS"
+[ -z "$CC" ] && CC="cc"
+[ -z "$CFLAGS" ] && CFLAGS="-Os -mtune=generic"
+CFLAGS="-I$BASE_DIR/include -Wall -pedantic -D_GNU_SOURCE $CFLAGS"
 
-echo "Building lazy-utils with $CC $CFLAGS and $LD $LDFLAGS"
+echo "Building lazy-utils with $CC $CFLAGS"
 
 # build all source files
 for i in $(find -type f -name '*.c')
@@ -31,15 +33,15 @@ do
 			;;
 
 		$BASE_DIR/login/*)
-			LIBS="-lcrypt -llazy"
+			libraries="-lcrypt -llazy"
 			;;
 
 		*)
-			LIBS="-llazy"
+			libraries="-llazy"
 			;;
 	esac
 
-	echo "Linking $applet_name with: $LIBS"
+	echo "Linking $applet_name with: $libraries"
 
-	$CC $i -L. $LDFLAGS $LIBS -o .bin/$applet_name
+	$CC $i -L. $libraries -o .bin/$applet_name
 done

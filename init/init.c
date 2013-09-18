@@ -37,7 +37,7 @@ bool _run_script(const char *path, pid_t *pid) {
 
 		case (0):
 			/* in the child process, run the init script */
-			(void) execl(path, path, NULL);
+			(void) execl(path, path, (char *) NULL);
 
 			/* upon failure, send a signal to the parent process */
 			(void) kill(parent_pid, SIGTERM);
@@ -131,6 +131,9 @@ int main() {
 			PRINT("Rebooting\n");
 			reboot_command = RB_AUTOBOOT;
 			break;
+
+		default:
+			goto end;
 	}
 	(void) reboot(reboot_command);
 

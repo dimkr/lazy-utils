@@ -13,8 +13,9 @@ int main(int argc, char *argv[]) {
 	/* the kernel module information */
 	kmodule_info_t info;
 
-	/* a loop index */
+	/* loop indices */
 	unsigned int i;
+	unsigned int j;
 
 	/* make sure the number of command-line arguments is valid */
 	if (2 != argc)
@@ -27,18 +28,26 @@ int main(int argc, char *argv[]) {
 	}
 
 	/* obtain the kernel module information */
-	kmodule_get_info(&module, &info);
+	if (false == kmodule_info_get(&module, &info))
+		goto close_module;
 
 	/* print the kernel module information */
 	(void) printf("filename: %s\n", module.path);
 	for (i = 0; ARRAY_SIZE(info._fields) > i; ++i) {
-		if (NULL != info._fields[i])
-			(void) printf("%s: %s\n", g_kmodule_fields[i], info._fields[i]);
+		for (j = 0; info._fields[i].count > j; ++j) {
+			(void) printf("%s: %s\n",
+			              g_kmodule_fields[i],
+			              info._fields[i].values[j]);
+		}
 	}
 
 	/* report success */
 	exit_code = EXIT_SUCCESS;
 
+	/* free the module information */
+	kmodule_info_free(&info);
+
+close_module:
 	/* close the kernel module */
 	kmodule_close(&module);
 

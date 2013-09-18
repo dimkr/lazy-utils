@@ -3,7 +3,7 @@
 #include <sys/types.h>
 
 /* created directory permissions */
-#define DIRECTORY_PERMISSIONS (ACCESSPERMS)
+#define DIRECTORY_PERMISSIONS (0777)
 
 int main(int argc, char *argv[]) {
 	/* the exit code */
