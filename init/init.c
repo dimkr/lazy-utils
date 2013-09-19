@@ -108,6 +108,15 @@ int main() {
 		(void) kill(-1, SIGKILL);
 	}
 
+	/* disable the SIGCHLD signal handler, to make it possible to wait for the
+	 * shutdown script to terminate */
+	if (-1 == sigemptyset(&signal_action.sa_mask))
+		goto flush;
+	signal_action.sa_flags = 0;
+	signal_action.sa_handler = SIG_IGN;
+	if (-1 == sigaction(SIGCHLD, &signal_action, NULL))
+		goto flush;
+
 	/* run the shutdown script */
 	PRINT("Running the shutdown script\n");
 	if (true == _run_script(SHUTDOWN_SCRIPT_PATH, &script_pid)) {
@@ -116,6 +125,7 @@ int main() {
 		(void) waitpid(script_pid, NULL, 0);
 	}
 
+flush:
 	/* flush all file systems */
 	PRINT("Flushing file system buffers\n");
 	sync();
