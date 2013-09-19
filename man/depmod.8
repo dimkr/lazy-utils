@@ -1,0 +1,22 @@
+.TH depmod 8
+.SH NAME
+.B depmod
+\- collects kernel module information
+.SH SYNOPSIS
+.B depmod
+.SH DESCRIPTION
+Collects information about all available kernel modules, to speed up loading.
+.SH FILES
+.TP
+.B /lib/modules/modules.order
+The list of all available kernel modules, ordered by priority
+.TP
+.B /lib/modules/modules.dep
+The list of kernel module dependencies
+.TP
+.B /lib/modules/modules.alias
+The list of kernel module aliases
+.SH "SEE ALSO"
+.B insmod(8), modprobe(8), kmoduled(8)
+.SH AUTHOR
+Dima Krasner (dima@dimakrasner.com)
