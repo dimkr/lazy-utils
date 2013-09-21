@@ -110,7 +110,7 @@ end:
 }
 
 bool _parse_options(const char *type,
-                    char *options,
+                    const char *options,
                     int *flags,
                     bool *is_loop) {
 	/* the return value */
@@ -139,10 +139,15 @@ bool _parse_options(const char *type,
 	if (NULL == options)
 		goto valid;
 
-	/* start parsing the options string */
-	options = strtok_r(options, ",", &position);
+	/* duplicate the constant options string */
+	options = strdup(options);
 	if (NULL == options)
 		goto end;
+
+	/* start parsing the options string */
+	options = strtok_r((char *) options, ",", &position);
+	if (NULL == options)
+		goto free_options;
 
 	/* split all tokens */
 	do {
@@ -151,8 +156,6 @@ bool _parse_options(const char *type,
 		else {
 			if (0 == strcmp("ro", options))
 				*flags |= MS_RDONLY;
-			else
-				goto end;
 		}
 		options = strtok_r(NULL, ",", &position);
 	} while (NULL != options);
@@ -160,6 +163,11 @@ bool _parse_options(const char *type,
 valid:
 	/* report success */
 	is_valid = true;
+
+free_options:
+	/* free the writable string */
+	if (NULL != options)
+		(void) free((void *) options);
 
 end:
 	return is_valid;
@@ -250,7 +258,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	/* mount the specified file system */
-	if (-1 != mount(source, argv[1 + optind], type, flags, NULL))
+	if (-1 != mount(source, argv[1 + optind], type, flags, options))
 		exit_code = EXIT_SUCCESS;
 
 end:
