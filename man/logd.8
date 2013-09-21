@@ -1,0 +1,24 @@
+.TH logd 8
+.SH NAME
+.B logd
+\- generic logging service
+.SH SYNOPSIS
+.B logd
+SOURCE DESTINATION
+.SH DESCRIPTION
+Reads from a given file writes all read data to a log file.
+.SH FILES
+.TP
+.B /var/log/messages
+The system log
+.TP
+.B /var/log/kern.log
+The kernel log
+.SH SIGNALS
+.TP
+.B SIGTERM
+Stops the process
+.SH "SEE ALSO"
+.B syslogd(8)
+.SH AUTHOR
+Dima Krasner (dima@dimakrasner.com)

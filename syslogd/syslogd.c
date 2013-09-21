@@ -6,8 +6,9 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
-#include <signal.h>
-#include <errno.h>
+#include <sys/klog.h>
+#include <liblazy/io.h>
+#include <liblazy/daemon.h>
 
 /* the IPC socket path */
 #define IPC_SOCKET_PATH "/dev/log"
@@ -15,43 +16,43 @@
 /* the log file path */
 #define LOG_FILE_PATH "/var/log/messages"
 
-/* the maximum size of a message */
-#define MAX_MESSAGE_SIZE (4096)
+/* the pipe path */
+#define PIPE_PATH "/run/messages"
 
 int main() {
 	/* the exit code */
 	int exit_code = EXIT_FAILURE;
 
-	/* the log file */
-	int log_file;
-
-	/* the Unix socket */
+	/* a Unix socket */
 	int ipc_socket;
 
 	/* the Unix socket address */
 	struct sockaddr_un ipc_socket_address;
 
-	/* a message */
-	char message[MAX_MESSAGE_SIZE];
+	/* a named pipe */
+	int fifo;
 
-	/* the size of a message */
-	ssize_t message_size;
+	/* the log file */
+	int log_file;
 
-	/* a signal mask */
-	sigset_t signal_mask;
+	/* open the kernel log */
+	if (-1 == klogctl(1, NULL, 0))
+		goto end;
 
-	/* file descriptor flags */
-	int flags;
+	/* disable writing of kernel log messages to the console */
+	if (-1 == klogctl(6, NULL, 0))
+		goto close_kernel_log;
 
-	/* a received signal */
-	int received_signal;
+	/* create a named pipe */
+	if (-1 == mkfifo(PIPE_PATH, S_IWUSR | S_IRUSR))
+		goto restore_kernel_output;
 
 	/* open the log file */
 	log_file = open(LOG_FILE_PATH,
 	                O_CREAT | O_APPEND | O_WRONLY,
 	                S_IWUSR | S_IRUSR);
 	if (-1 == log_file)
-		goto end;
+		goto delete_pipe;
 
 	/* create the IPC socket; if it exists already, do nothing, since this
 	 * indicates the daemon is already running or a previous one terminated
@@ -62,27 +63,6 @@ int main() {
 	if (-1 == ipc_socket)
 		goto close_log_file;
 
-	/* start blocking SIGIO, SIGINT and SIGTERM */
-	if (-1 == sigemptyset(&signal_mask))
-		goto close_socket;
-	if (-1 == sigaddset(&signal_mask, SIGIO))
-		goto close_socket;
-	if (-1 == sigaddset(&signal_mask, SIGINT))
-		goto close_socket;
-	if (-1 == sigaddset(&signal_mask, SIGTERM))
-		goto close_socket;
-	if (-1 == sigprocmask(SIG_BLOCK, &signal_mask, NULL))
-		goto close_socket;
-
-	/* get the IPC socket flags */
-	flags = fcntl(ipc_socket, F_GETFL);
-	if (-1 == flags)
-		goto close_socket;
-
-	/* enable non-blocking, asynchronous I/O */
-	if (-1 == fcntl(ipc_socket, F_SETFL, flags | O_NONBLOCK | O_ASYNC))
-		goto close_socket;
-
 	/* bind the socket */
 	if (-1 == bind(ipc_socket,
 	               (struct sockaddr *) &ipc_socket_address,
@@ -90,58 +70,24 @@ int main() {
 		goto close_socket;
 
 	/* daemonize */
-	if (-1 == daemon(0, 0))
-		goto end;
-
-	/* change the IPC socket ownership; the process ID changed during the
-	 * daemonization; from now and on, SIGIO will be received once a message is
-	 * received */
-	if (-1 == fcntl(ipc_socket, F_SETOWN, getpid()))
+	if (false == daemonize())
 		goto close_socket;
 
-	do {
-		/* receive a message; if a message was received during the
-		 * initialization stage, no signal will be sent, so this must happen
-		 * before the daemon starts waiting for signals; otherwise, recvfrom()
-		 * will fail with EAGAIN in errno */
-		message_size = recvfrom(ipc_socket,
-		                        (char *) &message,
-		                        sizeof(message),
-		                        0,
-		                        NULL,
-		                        NULL);
-		switch (message_size) {
-			case (-1):
-				if (EAGAIN != errno)
-					goto close_socket;
-				break;
+	/* open the pipe for writing */
+	fifo = open(PIPE_PATH, O_WRONLY);
+	if (-1 == fifo)
+		goto close_socket;
 
-			/* if the received message is empty, do nothing */
-			case (0):
-				break;
-
-			default:
-				/* otherwise, write the message to the log file */
-				if (0 != message_size) {
-					if (message_size != write(log_file,
-					                          (char *) &message,
-					                          (size_t) message_size))
-					goto close_socket;
-				}
-				break;
-		}
-
-		/* wait for the next message to arrive */
-		if (0 != sigwait(&signal_mask, &received_signal))
-			goto close_socket;
-
-		/* if the received signal is a termination signal, stop */
-		if ((SIGTERM == received_signal) || (SIGINT == received_signal))
-			break;
-	} while (1);
+	/* receive messages over the IPC socket and write them to the pipe */
+	if (false == file_log_from_dgram_socket(ipc_socket, fifo))
+		goto close_pipe;
 
 	/* report success */
 	exit_code = EXIT_SUCCESS;
+
+close_pipe:
+	/* close the pipe */
+	(void) close(fifo);
 
 close_socket:
 	/* close the IPC socket; upon success, delete the file */
@@ -151,6 +97,18 @@ close_socket:
 close_log_file:
 	/* close the log file */
 	(void) close(log_file);
+
+delete_pipe:
+	/* delete the pipe */
+	(void) unlink(PIPE_PATH);
+
+restore_kernel_output:
+	/* re-enable writing of kernel log messages to the console */
+	(void) klogctl(7, NULL, 0);
+
+close_kernel_log:
+	/* close the kernel log */
+	(void) klogctl(0, NULL, 0);
 
 end:
 	return exit_code;

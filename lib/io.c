@@ -3,10 +3,13 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/socket.h>
 #include <sys/mman.h>
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
+#include <signal.h>
+#include <errno.h>
 #include <liblazy/io.h>
 
 bool file_read(file_t *file, const char *path) {
@@ -151,4 +154,98 @@ bool file_find(const char *path, const char *name, char *full_path) {
 	                     name,
 	                     full_path,
 	                     (file_callback_t) _plain_search_callback);
+}
+
+bool _file_log(const int source,
+               ssize_t (*reader)(int fd, void *buffer, size_t len),
+               const int destination) {
+	/* the return value */
+	bool is_success = false;
+
+	/* the reading buffer */
+	unsigned char buffer[FILE_READING_BUFFER_SIZE];
+
+	/* the number of bytes read into the buffer */
+	ssize_t bytes_read;
+
+	/* a signal mask */
+	sigset_t signal_mask;
+
+	/* file descriptor flags */
+	int flags;
+
+	/* a received signal */
+	int received_signal;
+
+	/* start blocking SIGIO and SIGTERM */
+	if (-1 == sigemptyset(&signal_mask))
+		goto end;
+	if (-1 == sigaddset(&signal_mask, SIGIO))
+		goto end;
+	if (-1 == sigaddset(&signal_mask, SIGTERM))
+		goto end;
+	if (-1 == sigprocmask(SIG_BLOCK, &signal_mask, NULL))
+		goto end;
+
+	/* get the message source flags */
+	flags = fcntl(source, F_GETFL);
+	if (-1 == flags)
+		goto end;
+
+	/* enable non-blocking, asynchronous I/O */
+	if (-1 == fcntl(source, F_SETFL, flags | O_NONBLOCK | O_ASYNC))
+		goto end;
+
+	/* change the message source ownership */
+	if (-1 == fcntl(source, F_SETOWN, getpid()))
+		goto end;
+
+	do {
+		/* read from the message source */
+		bytes_read = reader(source, (char *) &buffer, sizeof(buffer));
+		switch (bytes_read) {
+			case (-1):
+				if (EAGAIN != errno)
+					goto end;
+				break;
+
+			/* if the buffer is empty, do nothing */
+			case (0):
+				break;
+
+			default:
+				/* otherwise, write the buffer to the log file */
+				if (bytes_read != write(destination,
+				                        (char *) &buffer,
+				                        (size_t) bytes_read))
+					goto end;
+				break;
+		}
+
+		/* wait for more data to arrive, by waiting for a signal */
+		if (0 != sigwait(&signal_mask, &received_signal))
+			goto end;
+
+		/* if the received signal is a termination signal, stop */
+		if (SIGTERM == received_signal)
+			break;
+	} while (1);
+
+	/* report success */
+	is_success = true;
+
+end:
+	return is_success;
+}
+
+bool file_log_from_file(const int source, const int destination) {
+	return _file_log(source, read, destination);
+}
+
+ssize_t _dgram_socket_read(int fd, void *buffer, size_t len) {
+	return recvfrom(fd, buffer, len, 0, NULL, NULL);
+}
+
+bool file_log_from_dgram_socket(const int source, const int destination) {
+	return _file_log(source, _dgram_socket_read, destination);
 }

@@ -5,7 +5,7 @@
 #include <liblazy/login.h>
 
 /* the fallback value of TERM */
-#define FALLBACK_TERM "vt100"
+#define FALLBACK_TERM "linux"
 
 #define MAX_ENVIRONMENT_VARIABLE_SIZE (1024)
 

@@ -31,4 +31,7 @@ bool file_find_wildcard(const char *path,
                         const char *pattern,
                         char *full_path);
 
+bool file_log_from_file(const int source, const int destination);
+bool file_log_from_dgram_socket(const int source, const int destination);
+
 #endif

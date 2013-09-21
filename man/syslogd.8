@@ -5,12 +5,16 @@
 .SH SYNOPSIS
 .B syslogd
 .SH DESCRIPTION
-Manages the system log, /var/log/messages.
+Manages the system log.
 .SH FILES
 .TP
-.B /var/log/messages
-The system log
+.B /run/messages
+A named pipe the system log messages are written to
+.SH SIGNALS
+.TP
+.B SIGTERM
+Stops the process
 .SH "SEE ALSO"
-.B logger(1), klogd(8)
+.B logd(8), logger(1)
 .SH AUTHOR
 Dima Krasner (dima@dimakrasner.com)

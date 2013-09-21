@@ -19,18 +19,22 @@
 #include <linux/netlink.h>
 #include <liblazy/io.h>
 #include <liblazy/kmodule.h>
+#include <liblazy/daemon.h>
 
+/* the sysfs mount point */
 #define SYSFS_MOUNT_POINT "/sys"
 
+/* the module alias file name */
 #define MODULE_ALIAS_FILE_NAME "modalias"
 
+/* the maximum length of a module alias */
 #define MAX_MODULE_ALIAS_LENGTH (1023)
 
 /* the source of system log messages */
 #define LOG_IDENTITY "kmoduled"
 
 /* the buffer size for received messages */
-#define BUFFER_SIZE (1 + FILE_READING_BUFFER_SIZE)
+#define BUFFER_SIZE (FILE_READING_BUFFER_SIZE)
 
 bool _load_module_for_device(const char *alias) {
 	if (true == kmodule_load_by_alias(alias))
@@ -197,12 +201,10 @@ int main(int argc, char *argv[]) {
 	if (1 != argc)
 		goto end;
 
-	/* block SIGIO, SIGINT and SIGTERM signals */
+	/* block SIGIO and SIGTERM signals */
 	if (-1 == sigemptyset(&signal_mask))
 		goto end;
 	if (-1 == sigaddset(&signal_mask, SIGIO))
-		goto end;
-	if (-1 == sigaddset(&signal_mask, SIGINT))
 		goto end;
 	if (-1 == sigaddset(&signal_mask, SIGTERM))
 		goto end;
@@ -223,10 +225,6 @@ int main(int argc, char *argv[]) {
 	if (-1 == fcntl(ipc_socket, F_SETFL, flags | O_NONBLOCK | O_ASYNC))
 		goto close_socket;
 
-	/* daemonize */
-	if (-1 == daemon(0, 0))
-		goto end;
-
 	/* bind the socket */
 	address.nl_family = AF_NETLINK;
 	address.nl_pid = getpid();
@@ -234,19 +232,24 @@ int main(int argc, char *argv[]) {
 	if (-1 == bind(ipc_socket, (struct sockaddr *) &address, sizeof(address)))
 		goto close_socket;
 
+	/* daemonize */
+	if (false == daemonize())
+		goto close_socket;
+
 	/* open the system log */
 	openlog(LOG_IDENTITY, LOG_NDELAY, LOG_USER);
 
 	/* load kernel modules for existing devices */
-	syslog(LOG_INFO, "loading kernel modules for existing devices\n");
+	syslog(LOG_INFO,
+	       "kmoduled has started; loading kernel modules for existing devices");
 	if (true == _handle_existing_devices())
-		goto close_socket;
-
-	syslog(LOG_INFO, "waiting for uevents\n");
+		goto close_system_log;
 
 	/* change the IPC socket ownership */
 	if (-1 == fcntl(ipc_socket, F_SETOWN, address.nl_pid))
-		goto close_socket;
+		goto close_system_log;
+
+	syslog(LOG_INFO, "waiting for uevents");
 
 	do {
 		/* receive a message */
@@ -257,7 +260,7 @@ int main(int argc, char *argv[]) {
 		switch (message_size) {
 			case (-1):
 				if (EAGAIN != errno)
-					goto close_socket;
+					goto close_system_log;
 				break;
 
 			case (0):
@@ -276,24 +279,26 @@ int main(int argc, char *argv[]) {
 
 		/* wait until a signal is received */
 		if (0 != sigwait(&signal_mask, &received_signal))
-			goto close_socket;
+			goto close_system_log;
 
 		/* if the received signal is a termination one, stop */
-		if (SIGIO != received_signal) {
-			syslog(LOG_INFO, "shutting down\n");
+		if (SIGTERM == received_signal)
 			break;
-		}
 	} while (1);
 
 	/* report success */
 	exit_code = EXIT_SUCCESS;
 
-close_socket:
-	/* close the netlink socket */
-	(void) close(ipc_socket);
+close_system_log:
+	/* write another log message, which indicates when the daemon terminated */
+	syslog(LOG_INFO, "shutting down");
 
 	/* close the system log */
 	closelog();
+
+close_socket:
+	/* close the netlink socket */
+	(void) close(ipc_socket);
 
 end:
 	return exit_code;
