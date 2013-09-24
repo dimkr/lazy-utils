@@ -171,9 +171,6 @@ bool _file_log(const int source,
 	/* a signal mask */
 	sigset_t signal_mask;
 
-	/* file descriptor flags */
-	int flags;
-
 	/* a received signal */
 	int received_signal;
 
@@ -187,17 +184,8 @@ bool _file_log(const int source,
 	if (-1 == sigprocmask(SIG_BLOCK, &signal_mask, NULL))
 		goto end;
 
-	/* get the message source flags */
-	flags = fcntl(source, F_GETFL);
-	if (-1 == flags)
-		goto end;
-
 	/* enable non-blocking, asynchronous I/O */
-	if (-1 == fcntl(source, F_SETFL, flags | O_NONBLOCK | O_ASYNC))
-		goto end;
-
-	/* change the message source ownership */
-	if (-1 == fcntl(source, F_SETOWN, getpid()))
+	if (false == file_enable_async_io(source))
 		goto end;
 
 	do {
@@ -248,4 +236,31 @@ ssize_t _dgram_socket_read(int fd, void *buffer, size_t len) {
 
 bool file_log_from_dgram_socket(const int source, const int destination) {
 	return _file_log(source, _dgram_socket_read, destination);
+}
+
+bool file_enable_async_io(const int fd) {
+	/* the return value */
+	bool is_success = false;
+
+	/* file descriptor flags */
+	int flags;
+
+	/* get the message source flags */
+	flags = fcntl(fd, F_GETFL);
+	if (-1 == flags)
+		goto end;
+
+	/* enable non-blocking, asynchronous I/O */
+	if (-1 == fcntl(fd, F_SETFL, flags | O_NONBLOCK | O_ASYNC))
+		goto end;
+
+	/* change the message source ownership */
+	if (-1 == fcntl(fd, F_SETOWN, getpid()))
+		goto end;
+
+	/* report success */
+	is_success = true;
+
+end:
+	return is_success;
 }

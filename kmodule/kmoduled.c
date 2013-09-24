@@ -182,9 +182,6 @@ int main(int argc, char *argv[]) {
 	/* a netlink socket */
 	int ipc_socket;
 
-	/* the socket flags */
-	int flags;
-
 	/* a received signal */
 	int received_signal;
 
@@ -216,15 +213,6 @@ int main(int argc, char *argv[]) {
 	if (-1 == ipc_socket)
 		goto end;
 
-	/* get the IPC socket flags */
-	flags = fcntl(ipc_socket, F_GETFL);
-	if (-1 == flags)
-		goto close_socket;
-
-	/* enable non-blocking, asynchronous I/O */
-	if (-1 == fcntl(ipc_socket, F_SETFL, flags | O_NONBLOCK | O_ASYNC))
-		goto close_socket;
-
 	/* bind the socket */
 	address.nl_family = AF_NETLINK;
 	address.nl_pid = getpid();
@@ -245,8 +233,8 @@ int main(int argc, char *argv[]) {
 	if (true == _handle_existing_devices())
 		goto close_system_log;
 
-	/* change the IPC socket ownership */
-	if (-1 == fcntl(ipc_socket, F_SETOWN, address.nl_pid))
+	/* enable asynchronous I/O */
+	if (false == file_enable_async_io(ipc_socket))
 		goto close_system_log;
 
 	syslog(LOG_INFO, "waiting for uevents");

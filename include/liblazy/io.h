@@ -34,4 +34,6 @@ bool file_find_wildcard(const char *path,
 bool file_log_from_file(const int source, const int destination);
 bool file_log_from_dgram_socket(const int source, const int destination);
 
+bool file_enable_async_io(const int fd);
+
 #endif
