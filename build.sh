@@ -36,6 +36,10 @@ do
 			libraries="-lcrypt -llazy"
 			;;
 
+		$BASE_DIR/net/relayd.o)
+			libraries="-pthread -llazy"
+			;;
+
 		*)
 			libraries="-llazy"
 			;;

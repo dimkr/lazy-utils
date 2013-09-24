@@ -11,14 +11,18 @@
 #include <arpa/inet.h>
 #include <signal.h>
 #include <errno.h>
+#include <semaphore.h>
 #include <liblazy/io.h>
 #include <liblazy/daemon.h>
 
-/* the maximum number of clients waiting to be handled */
-#define CLIENTS_QUEUE_SIZE (32)
+/* the maximum number of clients handled concurrently */
+#define CLIENTS_LIMIT (32)
+
+/* the semaphore name template */
+#define SEMAPHORE_NAME_TEMPLATE "/relayd_%s"
 
 /* the relaying timeout, in seconds */
-#define RELAYING_TIMEOUT (5 * 60)
+#define RELAYING_TIMEOUT (60)
 
 /* the log message source */
 #define LOG_IDENTITY "relayd"
@@ -26,11 +30,56 @@
 /* the relaying buffer size */
 #define RELAYING_BUFFER_SIZE (FILE_READING_BUFFER_SIZE)
 
+bool _should_drop_client(const unsigned char *buffer,
+                         const ssize_t len,
+                         char **blacklist) {
+	/* the return value */
+	bool should_drop = false;
+
+	/* loop indices */
+	unsigned int i;
+	ssize_t j;
+
+	/* blacklisted string length */
+	int length;
+
+	/* check whether the relayed buffer contains a blacklisted string */
+	for (i = 0; NULL != blacklist[i]; ++i) {
+		/* get the blacklisted string length */
+		length = strlen(blacklist[i]);
+
+		/* skip empty strings */
+		if (0 == length)
+			continue;
+
+		/* search for blacklisted strings in the relayed buffer; check the first
+		 * character before calling memcmp(), to make the whole thing a lot
+		 * faster */
+		for (j = 0; (len - (ssize_t) length) > j; ++j) {
+			if (buffer[j] != blacklist[i][0])
+				continue;
+
+			if (0 == memcmp(&buffer[1 + j], &blacklist[i][1], (length - 1))) {
+				syslog(LOG_INFO,
+				       "found a blacklisted string: %s",
+				       blacklist[i]);
+				should_drop = true;
+				goto end;
+			}
+		}
+	}
+
+end:
+	return should_drop;
+}
+
 bool _relay_tick(unsigned char *buffer,
                  size_t buffer_size,
                  const int source,
                  const int destination,
-                 ssize_t *counter) {
+                 ssize_t *counter,
+                 char **blacklist,
+                 int shortest_blacklist_item) {
 	/* the return value */
 	bool is_success = false;
 
@@ -51,6 +100,22 @@ bool _relay_tick(unsigned char *buffer,
 				goto end;
 
 			default:
+				/* deal with tiny fragmentation attacks - if the buffer is
+				 * smaller than the shortest blacklisted string, drop the
+				 * client */
+				if (0 != shortest_blacklist_item) {
+					if (chunk_size <= (ssize_t) shortest_blacklist_item) {
+						syslog(LOG_ALERT,
+						       "detected a tiny fragmentation attack");
+						goto end;
+					}
+				}
+
+				/* if the buffer contains a blacklisted string, drop the
+				 * client */
+				if (true == _should_drop_client(buffer, chunk_size, blacklist))
+					goto end;
+
 				/* send the chunk to the destination socket */
 				if (chunk_size != send(destination,
 				                       buffer,
@@ -77,7 +142,11 @@ end:
 	return is_success;
 }
 
-ssize_t _relay(const int first, const int second, const long timeout) {
+ssize_t _relay(const int first,
+               const int second,
+               const long timeout,
+               char **blacklist,
+               int shortest_blacklist_item) {
 	/* the return value */
 	ssize_t counter = 0;
 
@@ -129,7 +198,9 @@ ssize_t _relay(const int first, const int second, const long timeout) {
 	                         RELAYING_BUFFER_SIZE,
 	                         first,
 	                         second,
-	                         &counter))
+	                         &counter,
+	                         blacklist,
+	                         shortest_blacklist_item))
 		goto free_buffer;
 
 	/* relay all data sent through the second socket */
@@ -137,7 +208,9 @@ ssize_t _relay(const int first, const int second, const long timeout) {
 	                         RELAYING_BUFFER_SIZE,
 	                         second,
 	                         first,
-	                         &counter))
+	                         &counter,
+	                         blacklist,
+	                         shortest_blacklist_item))
 		goto free_buffer;
 
 	do {
@@ -159,13 +232,17 @@ ssize_t _relay(const int first, const int second, const long timeout) {
 		                         RELAYING_BUFFER_SIZE,
 		                         first,
 		                         second,
-		                         &counter))
+		                         &counter,
+		                         blacklist,
+		                         shortest_blacklist_item))
 			break;
 		if (false == _relay_tick(buffer,
 		                         RELAYING_BUFFER_SIZE,
 		                         second,
 		                         first,
-		                         &counter))
+		                         &counter,
+		                         blacklist,
+		                         shortest_blacklist_item))
 			break;
 	} while (1);
 
@@ -181,7 +258,9 @@ void _handle_client(const int client_socket,
                     struct sockaddr_storage *client_address,
                     char *client_address_textual,
                     struct addrinfo *server_address,
-                    ssize_t *bytes_relayed) {
+                    ssize_t *bytes_relayed,
+                    char **blacklist,
+                    int shortest_blacklist_item) {
 	/* a socket connected to the server */
 	int server_socket;
 
@@ -232,7 +311,11 @@ void _handle_client(const int client_socket,
 		goto close_server_socket;
 
 	/* relay the entire session */
-	*bytes_relayed = _relay(client_socket, server_socket, RELAYING_TIMEOUT);
+	*bytes_relayed = _relay(client_socket,
+	                        server_socket,
+	                        RELAYING_TIMEOUT,
+	                        blacklist,
+	                        shortest_blacklist_item);
 
 close_server_socket:
 	/* close the socket */
@@ -295,8 +378,23 @@ int main(int argc, char *argv[]) {
 	/* a received signal */
 	int received_signal;
 
+	/* a loop index */
+	unsigned int i;
+
+	/* blacklisted string length */
+	int length;
+
+	/* the shortest blacklisted string length */
+	int min_length;
+
+	/* the clients semaphore */
+	sem_t *clients_semaphore;
+
+	/* the semaphore name */
+	char semaphore_name[1 + NAME_MAX];
+
 	/* make sure the number of command-line arguments is valid */
-	if (4 != argc)
+	if (4 > argc)
 		goto end;
 
 	/* open the system log */
@@ -356,12 +454,15 @@ int main(int argc, char *argv[]) {
 		goto close_listening_socket;
 
 	/* start listening */
-	if (-1 == listen(listening_socket, CLIENTS_QUEUE_SIZE))
+	if (-1 == listen(listening_socket, CLIENTS_LIMIT))
 		goto close_listening_socket;
 
 	/* daemonize */
 	if (false == daemonize())
 		goto close_listening_socket;
+
+	/* get the new process ID */
+	parent_pid = getpid();
 
 	/* block SIGIO and SIGTERM signals */
 	if (-1 == sigemptyset(&signal_mask))
@@ -375,15 +476,40 @@ int main(int argc, char *argv[]) {
 
 	/* enable asynchronous I/O */
 	if (false == file_enable_async_io(listening_socket))
-		goto close_system_log;
+		goto close_listening_socket;
 
-	/* get the new process ID */
-	parent_pid = getpid();
+	/* create a named semaphore */
+	(void) sprintf((char *) &semaphore_name, SEMAPHORE_NAME_TEMPLATE, argv[1]);
+	clients_semaphore = sem_open((char *) &semaphore_name,
+	                             O_CREAT | O_EXCL | O_RDWR,
+	                             S_IRUSR | S_IWUSR,
+	                             CLIENTS_LIMIT);
+	if (SEM_FAILED == clients_semaphore)
+		goto close_listening_socket;
+
+	/* find the shortest blacklisted string */
+	min_length = 0;
+	for (i = 4; NULL != argv[i]; ++i) {
+		/* get the blacklisted string length */
+		length = strlen(argv[i]);
+
+		/* skip empty strings */
+		if (0 == length)
+			continue;
+
+		/* find the shortest blacklisted string */
+		if (0 == min_length)
+			min_length = length;
+		else {
+			if (min_length > length)
+				min_length = length;
+		}
+	}
 
 	do {
 		/* wait until a signal is received */
 		if (0 != sigwait(&signal_mask, &received_signal))
-			goto close_listening_socket;
+			goto close_semaphore;
 
 		/* if the received signal is a termination one, stop */
 		if (SIGTERM == received_signal)
@@ -402,15 +528,23 @@ int main(int argc, char *argv[]) {
 		pid = fork();
 		switch (pid) {
 			case (-1):
-				goto close_listening_socket;
+				/* disconnect the client */
+				(void) close(client_socket);
+				goto close_semaphore;
 
 			case (0):
+				/* lock the semaphore */
+				if (-1 == sem_wait(clients_semaphore))
+					goto disconnect_client;
+
 				/* serve the client */
 				_handle_client(client_socket,
 				               &client_address,
 				               (char *) &client_address_textual,
 				               server_address,
-				               &bytes_relayed);
+				               &bytes_relayed,
+				               &argv[4],
+				               min_length);
 
 				/* write a summary to the system log */
 				syslog(LOG_INFO,
@@ -420,13 +554,17 @@ int main(int argc, char *argv[]) {
 				       argv[2],
 				       argv[3]);
 
+				/* unlock the semaphore */
+				(void) sem_post(clients_semaphore);
+
+disconnect_client:
 				/* disconnect the client */
 				(void) close(client_socket);
 
 				/* report success, always */
 				exit_code = EXIT_SUCCESS;
 
-				goto close_listening_socket;
+				goto close_semaphore;
 
 			default:
 				/* close the client socket */
@@ -437,6 +575,13 @@ int main(int argc, char *argv[]) {
 
 	/* report success */
 	exit_code = EXIT_SUCCESS;
+
+close_semaphore:
+	/* close the semaphore; in the parent process, delete it afterwards */
+	if (0 == sem_close(clients_semaphore)) {
+		if (parent_pid == getpid())
+			(void) sem_unlink((char *) &semaphore_name);
+	}
 
 close_listening_socket:
 	/* close the listening socket */

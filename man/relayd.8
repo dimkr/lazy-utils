@@ -4,9 +4,12 @@
 \- relays TCP sessions to a server
 .SH SYNOPSIS
 .B relayd
-LOCAL_PORT SERVER REMOTE_PORT
+LOCAL_PORT SERVER REMOTE_PORT [STRING]...
 .SH DESCRIPTION
 Listens on a given port and redirects all incoming traffic to a given server.
+
+Optionally, a list of blacklisted strings may be specified; if a session's
+traffic contains at least one of them, the session will be terminated.
 .SH SIGNALS
 .TP
 .B SIGTERM
