@@ -1,0 +1,19 @@
+.TH client 1
+.SH NAME
+.B client
+\- generic TCP client
+.SH SYNOPSIS
+.B client
+SERVER PORT
+.SH DESCRIPTION
+Relays between the standard input and output and a given server.
+.SH ENVIRONMENT VARIABLES
+.TP
+.B TRAFFIC_BLACKLIST
+A list of comma-delimeted regular expressions which act as a blacklist of the
+relayed traffic; if a session's traffic matches any expressions, the session is
+dropped
+.SH "SEE ALSO"
+.B relayd(8)
+.SH AUTHOR
+Dima Krasner (dima@dimakrasner.com)
