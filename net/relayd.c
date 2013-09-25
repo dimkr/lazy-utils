@@ -8,6 +8,7 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <semaphore.h>
+#include <syslog.h>
 #include <liblazy/io.h>
 #include <liblazy/daemon.h>
 
@@ -16,6 +17,9 @@
 
 /* the client handler */
 #define CLIENT_HANDLER "client"
+
+/* the application name in the system log */
+#define LOG_IDENTITY "relayd"
 
 /* a semaphore used to limit the number of clients served at once */
 sem_t g_client_semaphore;
@@ -70,13 +74,23 @@ int main(int argc, char *argv[]) {
 	if (4 != argc)
 		goto end;
 
+	/* open the system log */
+	openlog(LOG_IDENTITY, LOG_NDELAY | LOG_PID, LOG_USER);
+
+	/* write a log message which indicates when the daemon started running */
+	syslog(LOG_INFO,
+	       "relayd has started (%s -> %s:%s)",
+	       argv[1],
+	       argv[2],
+	       argv[3]);
+
 	/* resolve the local address */
 	hints.ai_flags = AI_PASSIVE | AI_ADDRCONFIG;
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = 0;
 	if (0 != getaddrinfo(NULL, argv[1], &hints, &local_address))
-		goto end;
+		goto close_system_log;
 
 	/* assign a signal handler for SIGCHLD, which destroys zombie child
 	 * processes */
@@ -137,6 +151,7 @@ int main(int argc, char *argv[]) {
 
 	do {
 		/* wait until a signal is received */
+		syslog(LOG_INFO, "waiting for a client");
 		if (0 != sigwait(&signal_mask, &received_signal))
 			goto close_socket;
 
@@ -155,6 +170,8 @@ int main(int argc, char *argv[]) {
 		                       &client_address_size);
 		if (-1 == client_socket)
 			goto close_socket;
+
+		syslog(LOG_INFO, "accepted a client");
 
 		/* create a child process */
 		pid = fork();
@@ -219,6 +236,14 @@ destroy_semaphore:
 free_local_address:
 	/* free the local address */
 	freeaddrinfo(local_address);
+
+close_system_log:
+	/* write another log message, which indicates when the daemon stopped
+	 * running */
+	syslog(LOG_INFO, "relayd has terminated");
+
+	/* close the system log */
+	closelog();
 
 end:
 	return exit_code;
