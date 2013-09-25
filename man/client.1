@@ -13,6 +13,10 @@ Relays between the standard input and output and a given server.
 A list of comma-delimeted regular expressions which act as a blacklist of the
 relayed traffic; if a session's traffic matches any expressions, the session is
 dropped
+.TP
+.B MIN_CHUNK_SIZE
+Defines an optional, minimum chunk size for relaying, in bytes; if at least one
+chunk of the session traffic is smaller than this amount, the session is dropped
 .SH "SEE ALSO"
 .B relayd(8)
 .SH AUTHOR

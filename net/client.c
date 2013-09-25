@@ -20,11 +20,15 @@
 /* the relaying buffer size, in bytes */
 #define RELAYING_BUFFER_SIZE (64 * 1024)
 
-/* the minimum size of a relayd chunk, in bytes */
-#define MINIMUM_CHUNK_SIZE (64)
-
 /* the environment variable containing the blacklist */
 #define BLACKLIST_ENVIRONMENT_VARIABLE "TRAFFIC_BLACKLIST"
+
+/* the environment variable containing the minimum size of a relayd chunk, in
+ * bytes */
+#define MINIMUM_CHUNK_SIZE_ENVIRONMENT_VARIABLE ("MIN_CHUNK_SIZE")
+
+/* the default minimum chunk size, in bytes */
+#define FALLBACK_MINIMUM_CHUNK_SIZE (0)
 
 /* the application name in the system log */
 #define LOG_IDENTITY "client"
@@ -41,6 +45,7 @@ typedef struct {
 	blacklist_expression_t *items;
 	unsigned int count;
 	char *environment_variable;
+	ssize_t minimum_chunk_size;
 } blacklist_t;
 
 /* a peer in the session */
@@ -61,16 +66,16 @@ bool _should_drop_client(unsigned char *buffer,
 	/* a loop index */
 	unsigned int i;
 
-	/* if the blacklist is empty, do nothing */
-	if (0 == blacklist->count)
-		goto end;
-
 	/* if the chunk is too small, drop the connection - it could be a tiny
 	 * fragmentation attack */
-	if (MINIMUM_CHUNK_SIZE > buffer_size) {
+	if (blacklist->minimum_chunk_size > buffer_size) {
 		should_drop = true;
 		goto end;
 	}
+
+	/* if the blacklist is empty, do nothing */
+	if (0 == blacklist->count)
+		goto end;
 
 	/* if the buffer contains a NULL byte, the traffic is binary, so it cannot
 	 * be analyzed */
@@ -122,19 +127,19 @@ void _log_offending_client(const peer_t *peer) {
 	switch (client_address.ss_family) {
 		case AF_INET6:
 			if (NULL == inet_ntop(
-			                AF_INET6,
-			                &(((struct sockaddr_in6 *) &client_address)->sin6_addr),
-			                (char *) &client_address_textual,
-			                sizeof(client_address_textual)))
+			            AF_INET6,
+			            &(((struct sockaddr_in6 *) &client_address)->sin6_addr),
+			            (char *) &client_address_textual,
+			            sizeof(client_address_textual)))
 				goto end;
 			break;
 
 		case AF_INET:
 			if (NULL == inet_ntop(
-			                  AF_INET,
-			                  &(((struct sockaddr_in *) &client_address)->sin_addr),
-			                  (char *) &client_address_textual,
-			                  sizeof(client_address_textual)))
+			              AF_INET,
+			              &(((struct sockaddr_in *) &client_address)->sin_addr),
+			              (char *) &client_address_textual,
+			              sizeof(client_address_textual)))
 				goto end;
 			break;
 
@@ -170,7 +175,7 @@ bool _relay(unsigned char *buffer,
 
 	do {
 		/* receive a chunk */
-		chunk_size = read(source->input, buffer, buffer_size);
+		chunk_size = read(source->output, buffer, buffer_size);
 		switch (chunk_size) {
 			case (-1):
 				if (EAGAIN == errno)
@@ -192,7 +197,7 @@ bool _relay(unsigned char *buffer,
 				}
 
 				/* send the chunk to the other socket */
-				if (chunk_size != write(destination->output,
+				if (chunk_size != write(destination->input,
 				                        buffer,
 				                        (size_t) chunk_size))
 					goto end;
@@ -245,14 +250,16 @@ bool _get_blacklist(blacklist_t *blacklist) {
 	/* a blacklist expression */
 	char *expression;
 
+	/* the minimum chunk size */
+	char *minimum_chunk_size;
+
 	/* initialize the blacklist size */
 	blacklist->count = 0;
 
-	/* get the environment variable value; if it does not exist, report
-	 * success */
+	/* get the environment variable value */
 	blacklist->environment_variable = getenv(BLACKLIST_ENVIRONMENT_VARIABLE);
 	if (NULL == blacklist->environment_variable)
-		goto success;
+		goto get_minimum_size;
 
 	/* allocate a writable string */
 	blacklist->environment_variable = strdup(blacklist->environment_variable);
@@ -278,7 +285,15 @@ bool _get_blacklist(blacklist_t *blacklist) {
 		expression = strtok_r(NULL, ",", &position);
 	} while (NULL != expression);
 
-success:
+get_minimum_size:
+	/* get the minimum chunk size and convert it to an integer; if it's
+	 * non-numeric, atoi() should return 0 */
+	minimum_chunk_size = getenv(MINIMUM_CHUNK_SIZE_ENVIRONMENT_VARIABLE);
+	if (NULL == minimum_chunk_size)
+		blacklist->minimum_chunk_size = FALLBACK_MINIMUM_CHUNK_SIZE;
+	else
+		blacklist->minimum_chunk_size = atoi(minimum_chunk_size);
+
 	/* report success */
 	is_success = true;
 	goto end;
