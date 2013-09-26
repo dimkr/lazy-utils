@@ -112,12 +112,19 @@ end:
 bool _parse_options(const char *type,
                     const char *options,
                     int *flags,
-                    bool *is_loop) {
+                    bool *is_loop,
+                    void **data) {
 	/* the return value */
 	bool is_valid = false;
 
 	/* strtok_r()'s position inside the options string */
 	char *position;
+
+	/* a copy of the options string */
+	char *options_copy = NULL;
+
+	/* a token in the options string */
+	char *token;
 
 	/* if both the bind mount and mount point moving flags were passed, report
 	 * failure */
@@ -140,25 +147,27 @@ bool _parse_options(const char *type,
 		goto valid;
 
 	/* duplicate the constant options string */
-	options = strdup(options);
-	if (NULL == options)
+	options_copy = strdup(options);
+	if (NULL == options_copy)
 		goto end;
 
 	/* start parsing the options string */
-	options = strtok_r((char *) options, ",", &position);
-	if (NULL == options)
+	token = strtok_r((char *) options_copy, ",", &position);
+	if (NULL == token)
 		goto free_options;
 
 	/* split all tokens */
 	do {
-		if (0 == strcmp("loop", options))
+		if (0 == strcmp("loop", token))
 			*is_loop = true;
 		else {
-			if (0 == strcmp("ro", options))
+			if (0 == strcmp("ro", token))
 				*flags |= MS_RDONLY;
+			else
+				*data = (void *) options;
 		}
-		options = strtok_r(NULL, ",", &position);
-	} while (NULL != options);
+		token = strtok_r(NULL, ",", &position);
+	} while (NULL != token);
 
 valid:
 	/* report success */
@@ -166,8 +175,8 @@ valid:
 
 free_options:
 	/* free the writable string */
-	if (NULL != options)
-		(void) free((void *) options);
+	if (NULL != options_copy)
+		(void) free(options_copy);
 
 end:
 	return is_valid;
@@ -193,6 +202,9 @@ int main(int argc, char *argv[]) {
 	/* mount options */
 	char *options = NULL;
 
+	/* a pointer passed to the mount() system call */
+	void *data = NULL;
+
 	/* the file system type */
 	char *type = NULL;
 
@@ -204,13 +216,17 @@ int main(int argc, char *argv[]) {
 
 	/* parse the command-line */
 	do {
-		option = getopt(argc, argv, "BMt:o:");
+		option = getopt(argc, argv, "BRMt:o:");
 		if (-1 == option)
 			break;
 
 		switch (option) {
 			case 'B':
 				flags |= MS_BIND;
+				break;
+
+			case 'R':
+				flags |= (MS_BIND | MS_REC);
 				break;
 
 			case 'M':
@@ -236,7 +252,7 @@ int main(int argc, char *argv[]) {
 		goto end;
 
 	/* parse the options string */
-	if (false == _parse_options(type, options, &flags, &is_loop))
+	if (false == _parse_options(type, options, &flags, &is_loop, &data))
 		goto end;
 
 	/* if the file system source is a regular file, try to pair it with a loop
@@ -258,7 +274,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	/* mount the specified file system */
-	if (-1 != mount(source, argv[1 + optind], type, flags, options))
+	if (-1 != mount(source, argv[1 + optind], type, flags, data))
 		exit_code = EXIT_SUCCESS;
 
 end:

@@ -15,7 +15,12 @@ Specifies the file system type of a newly-mounted file system.
 Specifies a list of comma-delimeted mounting options ("loop" and "ro").
 .TP
 .B -B
-When this options is specified, no file system is mounted. Instead, the contents of the source are mirrored on the destination.
+When this options is specified, no file system is mounted. Instead, the contents 
+of the source are mirrored on the destination.
+.TP
+.B -R
+When this options is specified, the behavior is same as that of "-B", but mount
+points under the mirrored directory are affected, too.
 .TP
 .B -M
 When this options is specified, an existing file system mounted at the source is
