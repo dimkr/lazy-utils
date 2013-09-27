@@ -36,17 +36,9 @@
 /* the buffer size for received messages */
 #define BUFFER_SIZE (FILE_READING_BUFFER_SIZE)
 
-bool _load_module_for_device(const char *alias) {
-	if (true == kmodule_load_by_alias(alias))
-		return true;
-
-	syslog(LOG_ERR, "failed to load a kernel module for %s\n", alias);
-	return false;
-}
-
 bool _handle_existing_device(const char *path,
                              const char *name,
-                             void *unused,
+                             kmodule_loader_t *loader,
                              struct dirent *entry) {
 	/* the return value */
 	bool should_stop = true;
@@ -87,7 +79,7 @@ bool _handle_existing_device(const char *path,
 	module_alias[module_alias_length - sizeof(char)] = '\0';
 
 	/* load the matching kernel module */
-	if (false == _load_module_for_device((char *) &module_alias))
+	if (false == kmodule_load_by_alias(loader, (char *) &module_alias))
 		goto close_file;
 
 	/* if everything went fine, continue to the next device */
@@ -102,14 +94,16 @@ end:
 	return should_stop;
 }
 
-bool _handle_existing_devices() {
+bool _handle_existing_devices(kmodule_loader_t *loader) {
 	return file_for_each(SYSFS_MOUNT_POINT,
 	                     MODULE_ALIAS_FILE_NAME,
-	                     NULL,
+	                     loader,
 	                     (file_callback_t) _handle_existing_device);
 }
 
-bool _handle_new_device(unsigned char *message, size_t len) {
+bool _handle_new_device(kmodule_loader_t *loader,
+                        unsigned char *message,
+                        size_t len) {
 	/* the return value */
 	bool is_success = true;
 
@@ -154,14 +148,13 @@ bool _handle_new_device(unsigned char *message, size_t len) {
 		position += (1 + strlen(delimeter));
 	} while (len >= ((unsigned char *) position - message));
 
-
 	/* if no module alias was specified, do nothing */
 	if (NULL == module_alias)
 		goto end;
 
 	/* if a device was added, load its kernel module */
 	if (0 == strcmp("add", action)) {
-		if (false == _load_module_for_device(module_alias))
+		if (false == kmodule_load_by_alias(loader, module_alias))
 			goto end;
 	}
 
@@ -194,6 +187,9 @@ int main(int argc, char *argv[]) {
 	/* the received message size */
 	ssize_t message_size;
 
+	/* a kernel module loader */
+	kmodule_loader_t loader;
+
 	/* make sure the number of command-line arguments is valid */
 	if (1 != argc)
 		goto end;
@@ -208,10 +204,14 @@ int main(int argc, char *argv[]) {
 	if (-1 == sigprocmask(SIG_BLOCK, &signal_mask, NULL))
 		goto end;
 
+	/* initialize the kernel module loader */
+	if (false == kmodule_loader_init(&loader, false))
+		goto end;
+
 	/* create a netlink socket */
 	ipc_socket = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
 	if (-1 == ipc_socket)
-		goto end;
+		goto destroy_loader;
 
 	/* bind the socket */
 	address.nl_family = AF_NETLINK;
@@ -230,7 +230,7 @@ int main(int argc, char *argv[]) {
 	/* load kernel modules for existing devices */
 	syslog(LOG_INFO,
 	       "kmoduled has started; loading kernel modules for existing devices");
-	if (true == _handle_existing_devices())
+	if (true == _handle_existing_devices(&loader))
 		goto close_system_log;
 
 	/* enable asynchronous I/O */
@@ -259,7 +259,8 @@ int main(int argc, char *argv[]) {
 				buffer[message_size] = '\0';
 
 				/* handle the received message */
-				(void) _handle_new_device((unsigned char *) &buffer,
+				(void) _handle_new_device(&loader,
+				                          (unsigned char *) &buffer,
 				                          (size_t) message_size);
 
 				break;
@@ -287,6 +288,10 @@ close_system_log:
 close_socket:
 	/* close the netlink socket */
 	(void) close(ipc_socket);
+
+destroy_loader:
+	/* destroy the kernel module loader */
+	kmodule_loader_destroy(&loader);
 
 end:
 	return exit_code;

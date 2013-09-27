@@ -2,12 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <liblazy/common.h>
-
-/* the list of loaded modules */
-#define LOADED_MODULES_LIST_PATH "/proc/modules"
-
-/* the maximum length of a line in the loaded modules list */
-#define MAX_LOADED_MODULE_ENTRY_LENGTH (511)
+#include <liblazy/kmodule.h>
 
 int main(int argc, char *argv[]) {
 	/* the exit code */
@@ -29,7 +24,7 @@ int main(int argc, char *argv[]) {
 	char *dependent_modules_count;
 
 	/* a line in the loaded modules list */
-	char line[1 + MAX_LOADED_MODULE_ENTRY_LENGTH];
+	char line[1 + KMODULE_MAX_LOADED_MODULE_ENTRY_LENGTH];
 
 	/* strtok_r()'s position within the line */
 	char *position;
@@ -39,7 +34,7 @@ int main(int argc, char *argv[]) {
 		goto end;
 
 	/* open the list of loaded modules */
-	loaded_modules = fopen(LOADED_MODULES_LIST_PATH, "r");
+	loaded_modules = fopen(KMODULE_LOADED_MODULES_LIST_PATH, "r");
 	if (NULL == loaded_modules)
 		goto end;
 

@@ -7,6 +7,9 @@ int main(int argc, char *argv[]) {
 	/* the exit code */
 	int exit_code = EXIT_FAILURE;
 
+	/* a kernel module loader */
+	kmodule_loader_t loader;
+
 	/* the kernel module */
 	kmodule_t module;
 
@@ -21,10 +24,14 @@ int main(int argc, char *argv[]) {
 	if (2 != argc)
 		goto end;
 
+	/* initialize the kernel module loader */
+	if (false == kmodule_loader_init(&loader, true))
+		goto end;
+
 	/* read the kernel module, by name or path */
-	if (false == kmodule_open(&module, argv[1], NULL)) {
-		if (false == kmodule_open(&module, NULL, argv[1]))
-			goto end;
+	if (false == kmodule_open(&loader, &module, argv[1], NULL)) {
+		if (false == kmodule_open(&loader, &module, NULL, argv[1]))
+			goto destroy_loader;
 	}
 
 	/* obtain the kernel module information */
@@ -50,6 +57,10 @@ int main(int argc, char *argv[]) {
 close_module:
 	/* close the kernel module */
 	kmodule_close(&module);
+
+destroy_loader:
+	/* destroy the kernel module loader */
+	kmodule_loader_destroy(&loader);
 
 end:
 	return exit_code;

@@ -16,7 +16,7 @@ FILE *g_dependencies_list;
 
 bool _add_module_to_lists(const char *path,
                           const char *pattern,
-                          void *unused,
+                          kmodule_loader_t *loader,
                           struct dirent *entry) {
 	/* a flag which indicates whether the module listing failed */
 	bool should_stop = true;
@@ -44,7 +44,7 @@ bool _add_module_to_lists(const char *path,
 	               (char *) &entry->d_name);
 
 	/* open the kernel module */
-	if (false == kmodule_open(&module, NULL, (char *) &full_path))
+	if (false == kmodule_open(loader, &module, NULL, (char *) &full_path))
 		goto end;
 
 	/* obtain the kernel module information */
@@ -96,10 +96,17 @@ bool _generate_modules_list() {
 	/* the return value */
 	bool is_success = false;
 
+	/* a kernel module loader */
+	kmodule_loader_t loader;
+
+	/* initialize the kernel module loader */
+	if (false == kmodule_loader_init(&loader, true))
+		goto end;
+
 	/* open the module list */
 	g_module_list = fopen(KMODULE_LIST_PATH, "w");
 	if (NULL == g_module_list)
-		goto end;
+		goto destroy_loader;
 
 	/* open the alias list */
 	g_alias_list = fopen(KMODULE_ALIAS_LIST_PATH, "w");
@@ -114,8 +121,8 @@ bool _generate_modules_list() {
 	/* list all kernel modules */
 	if (true == file_for_each(KMODULE_DIRECTORY,
 	                          "*."KMODULE_FILE_NAME_EXTENSION,
-	                          NULL,
-	                         (file_callback_t) _add_module_to_lists))
+	                          &loader,
+	                          (file_callback_t) _add_module_to_lists))
 		goto close_dependencies_list;
 
 	/* report success */
@@ -132,6 +139,10 @@ close_alias_list:
 close_module_list:
 	/* close the module list */
 	(void) fclose(g_module_list);
+
+destroy_loader:
+	/* destroy the kernel module loader */
+	kmodule_loader_destroy(&loader);
 
 end:
 	return is_success;
