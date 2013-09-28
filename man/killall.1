@@ -1,0 +1,28 @@
+.TH killall 1
+.SH NAME
+.B killall
+\- sends a signal to multiple processes
+.SH SYNOPSIS
+.B killall
+SIGNAL NAME
+.SH DESCRIPTION
+Sends a signal to all processes which match a given name.
+.TP
+.B -KILL
+Terminates each process immediately and brutally.
+.TP
+.B -TERM
+Asks each process to terminate.
+.TP
+.B -INT
+Simulates ^C (keyboard interrupt).
+.TP
+.B -STOP
+Pauses each process.
+.TP
+.B -CONT
+Resumes each process previously paused using "-STOP".
+.SH "SEE ALSO"
+.B kill(1), ps(1)
+.SH AUTHOR
+Dima Krasner (dima@dimakrasner.com)

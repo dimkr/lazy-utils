@@ -2,6 +2,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <signal.h>
+#include <liblazy/proc.h>
 
 int main(int argc, char *argv[]) {
 	/* the exit code */
@@ -25,27 +26,18 @@ int main(int argc, char *argv[]) {
 	if (0 >= pid)
 		goto end;
 
+	/* make sure the first argument begins with a dash */
+	if ('-' != argv[1][0])
+		goto end;
+
+	/* make sure the first argument isn't a dash */
+	if (1 == strlen(argv[1]))
+		goto end;
+
 	/* decide which signal to send */
-	if (0 == strcmp("-KILL", argv[1]))
-		sent_signal = SIGKILL;
-	else {
-		if (0 == strcmp("-TERM", argv[1]))
-			sent_signal = SIGTERM;
-		else {
-			if (0 == strcmp("-INT", argv[1]))
-				sent_signal = SIGINT;
-			else {
-				if (0 == strcmp("-STOP", argv[1]))
-					sent_signal = SIGSTOP;
-				else {
-					if (0 == strcmp("-CONT", argv[1]))
-						sent_signal = SIGCONT;
-					else
-						goto end;
-				}
-			}
-		}
-	}
+	sent_signal = signal_name_to_int((char *) &argv[1][1]);
+	if (-1 == sent_signal)
+		goto end;
 
 	/* send the signal */
 	if (-1 == kill(pid, sent_signal))
