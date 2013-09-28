@@ -12,10 +12,11 @@ Mounts a file system and manipulates mount points.
 Specifies the file system type of a newly-mounted file system.
 .TP
 .B -o
-Specifies a list of comma-delimeted mounting options ("loop" and "ro").
+Specifies a list of comma-delimeted mounting options ("loop", "ro", "noexec",
+"nodev" and "nosuid").
 .TP
 .B -B
-When this options is specified, no file system is mounted. Instead, the contents 
+When this options is specified, no file system is mounted. Instead, the contents
 of the source are mirrored on the destination.
 .TP
 .B -R

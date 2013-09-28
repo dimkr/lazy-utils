@@ -156,15 +156,27 @@ bool _parse_options(const char *type,
 	if (NULL == token)
 		goto free_options;
 
-	/* split all tokens */
+	/* split all tokens and set the matching bits */
 	do {
 		if (0 == strcmp("loop", token))
 			*is_loop = true;
 		else {
 			if (0 == strcmp("ro", token))
 				*flags |= MS_RDONLY;
-			else
-				*data = (void *) options;
+			else {
+				if (0 == strcmp("noexec", token))
+					*flags |= MS_NOEXEC;
+				else {
+					if (0 == strcmp("nodev", token))
+						*flags |= MS_NODEV;
+					else {
+						if (0 == strcmp("nosuid", token))
+							*flags |= MS_NOSUID;
+						else
+							*data = (void *) options;
+					}
+				}
+			}
 		}
 		token = strtok_r(NULL, ",", &position);
 	} while (NULL != token);
