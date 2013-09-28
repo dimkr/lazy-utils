@@ -1,0 +1,26 @@
+.TH kill 1
+.SH NAME
+.B kill
+\- sends a signal
+.SH SYNOPSIS
+.B kill
+SIGNAL PID
+.SH DESCRIPTION
+Sends a signal to a given process, specified by its ID.
+.TP
+.B -KILL
+Terminates a process immediately and brutally.
+.TP
+.B -TERM
+Asks a process to terminate.
+.TP
+.B -INT
+Simulates ^C (keyboard interrupt).
+.TP
+.B -STOP
+Pauses a process.
+.TP
+.B -CONT
+Resumes a process previously paused using "-STOP".
+.SH AUTHOR
+Dima Krasner (dima@dimakrasner.com)
