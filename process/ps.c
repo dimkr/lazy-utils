@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
 		goto end;
 
 	/* print the column headers */
-	if (0 > printf(OUTPUT_FORMAT, "PID", "PPID", "STATE", "NAME"))
+	if (0 > printf(OUTPUT_FORMAT, "PID", "PPID", "STATE", "COMMAND-LINE"))
 		goto end;
 
 	/* print the process list */

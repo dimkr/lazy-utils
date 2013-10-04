@@ -5,9 +5,13 @@
 |_|\__,_/___|\__, |      \__,_|\__|_|_|___/
              |___/
 
+Overview
+========
+
 lazy-utils is a collection of tiny, permissively-licensed system utilities that
 do the absolute minimum required to achieve a security-hardened, fast and tiny,
-Linux embedded system.
+GNU Linux-libre (http://linux-libre.fsfla.org/) or Linux
+(https://www.kernel.org/) embedded system.
 
 lazy-utils is meant to provide a no-frills, BSD-licensed alternative to
 toybox (http://www.landley.net/toybox/) and BusyBox (http://www.busybox.net/).
@@ -16,6 +20,50 @@ tradition and minimalism, with a tendency towards the latter.
 
 lazy-utils is heavily tied to Lazyux (https://github.com/iguleder/lazyux), a
 reference operating system built on top of it, which follows the same ideology.
+
+Building
+========
+
+In order to build lazy-utild, run build.sh. Then, install it into a directory
+using install.sh, e.g:
+
+  ./build.sh
+  ./install.sh /tmp/lazy-utils
+
+Dependencies
+============
+
+lazy-utils is designed for static linking and tested against two C libraries:
+musl (http://www.musl-libc.org/) and eglibc (http://www.eglibc.org/).
+
+At run-time, lazy-utils relies on the following file systems:
+  - A proc file system mounted at /proc
+  - A sysfs file system mounted at /sys
+  - A devtmpfs file system mounted at /dev
+  - A writable file systems at /tmp
+  - A writable file systems at /run
+
+Therefore, lazy-utils depends on GNU Linux-libre (http://linux-libre.fsfla.org/)
+or Linux (https://www.kernel.org/) of version 2.6.32 or
+above, built with CONFIG_SYSFS, CONFIG_PROC_FS and CONFIG_DEVTMPFS on.
+
+Hacking
+=======
+
+lazy-utils is written in the C language (more sepecifically, C99).
+
+Each lazy-utils tool or utility consist of a single source file, placed under a
+directory with a meaningful name. For example, the "process" directory contains
+process-related utilities. Placing a source file under a directory is enough to
+add a tool to lazy-utils.
+
+All code shared between multiple executables of the same category is placed
+under the "lib" directory, as a single source file. All files under this
+directory gets merged into a static library, liblazy.a. The library headers are
+located at the "include" directory.
+
+Credits and Legal Information
+=============================
 
 lazy-utils is licensed under a 2-clause BSD license, see COPYING for the license
 text. For a list of its authors and contributors, see AUTHORS.

@@ -26,16 +26,8 @@ int main(int argc, char *argv[]) {
 	if (0 >= pid)
 		goto end;
 
-	/* make sure the first argument begins with a dash */
-	if ('-' != argv[1][0])
-		goto end;
-
-	/* make sure the first argument isn't a dash */
-	if (1 == strlen(argv[1]))
-		goto end;
-
 	/* decide which signal to send */
-	sent_signal = signal_name_to_int((char *) &argv[1][1]);
+	sent_signal = signal_option_to_int(argv[1]);
 	if (-1 == sent_signal)
 		goto end;
 

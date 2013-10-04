@@ -11,6 +11,7 @@
 #	define KMODULE_LIST_PATH "/lib/modules/modules.order"
 #	define KMODULE_ALIAS_LIST_PATH "/lib/modules/modules.alias"
 #	define KMODULE_DEPENDENCIES_LIST_PATH "/lib/modules/modules.dep"
+#	define KMODULE_BUILT_IN_LIST_PATH "/lib/modules/modules.builtin"
 #	define KMODULE_LOADED_MODULES_LIST_PATH "/proc/modules"
 #	define KMODULE_DIRECTORY "/lib/modules"
 
@@ -29,11 +30,13 @@ typedef struct {
 	FILE *dependencies_list;
 	FILE *aliases_list;
 	FILE *loaded_modules_list;
+	FILE *built_in_modules_list;
 } kmodule_loader_t;
 
 typedef struct {
 	file_t file;
 	const char *name;
+	char base_name[NAME_MAX];
 	const char *path;
 	char _path[PATH_MAX];
 	kmodule_loader_t *loader;

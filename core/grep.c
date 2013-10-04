@@ -39,8 +39,8 @@ int main(int argc, char *argv[]) {
 			line[length - 1] = '\0';
 
 		/* if the line matches the given expression, print it */
-		if (0 == regexec(&expression, (char *) &line, 1, NULL, 0)) {
-			if (0 > printf("%s", (char *) &line))
+		if (0 == regexec(&expression, (char *) &line, 0, NULL, 0)) {
+			if (0 > printf("%s\n", (char *) &line))
 				goto free_expression;
 		}
 	} while (1);

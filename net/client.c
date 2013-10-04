@@ -91,7 +91,7 @@ bool _should_drop_client(unsigned char *buffer,
 	for (i = 0; blacklist->count > i; ++i) {
 		if (0 == regexec(&blacklist->items[i].compiled,
 		                 (const char *) buffer,
-		                 (size_t) buffer_size,
+		                 0,
 		                 NULL,
 		                 0)) {
 			should_drop = true;

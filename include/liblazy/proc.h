@@ -34,6 +34,6 @@ bool get_process_command_line(const char *pid, char *command_line, ssize_t *size
 
 bool get_process_info(const char *pid, process_info_t *info);
 
-int signal_name_to_int(const char *name);
+int signal_option_to_int(const char *option);
 
 #endif

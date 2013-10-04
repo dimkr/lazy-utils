@@ -190,23 +190,23 @@ end:
 	return is_success;
 }
 
-int signal_name_to_int(const char *name) {
+int signal_option_to_int(const char *option) {
 	/* the return value */
 	int numeric_value = (-1);
 
-	if (0 == strcmp("KILL", name))
+	if (0 == strcmp("-KILL", option))
 		numeric_value = SIGKILL;
 	else {
-		if (0 == strcmp("TERM", name))
+		if (0 == strcmp("-TERM", option))
 			numeric_value = SIGTERM;
 		else {
-			if (0 == strcmp("INT", name))
+			if (0 == strcmp("-INT", option))
 				numeric_value = SIGINT;
 			else {
-				if (0 == strcmp("STOP", name))
+				if (0 == strcmp("-STOP", option))
 					numeric_value = SIGSTOP;
 				else {
-					if (0 == strcmp("CONT", name))
+					if (0 == strcmp("-CONT", option))
 						numeric_value = SIGCONT;
 				}
 			}

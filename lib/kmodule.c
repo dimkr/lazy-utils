@@ -91,6 +91,13 @@ FILE *_get_loaded_modules_list(kmodule_loader_t *loader) {
 	return loader->loaded_modules_list;
 }
 
+FILE *_get_built_in_modules_list(kmodule_loader_t *loader) {
+	_open_cache_file(loader,
+	                 KMODULE_BUILT_IN_LIST_PATH,
+	                 &loader->built_in_modules_list);
+	return loader->built_in_modules_list;
+}
+
 bool _locate_module_by_name(kmodule_loader_t *loader,
                             const char *name,
                             char *path) {
@@ -494,6 +501,61 @@ end:
 	return is_loaded;
 }
 
+bool _is_module_built_in(kmodule_loader_t *loader, const char *name) {
+	/* the return value */
+	bool is_built_in = false;
+
+	/* the kernel module base name, with a leading / */
+	char base_name[NAME_MAX];
+
+	/* the built-in modules list */
+	FILE *built_in_modules_list;
+
+	/* a line in the aliases list */
+	char line[PATH_MAX];
+
+	/* open the built-in modules list */
+	built_in_modules_list = _get_built_in_modules_list(loader);
+	if (NULL == built_in_modules_list)
+		goto end;
+
+	/* format the module file name */
+	(void) sprintf((char *) &base_name,
+	               "/%s."KMODULE_FILE_NAME_EXTENSION,
+	               name);
+
+	do {
+		/* read one line */
+		if (NULL == fgets((char *) &line, sizeof(line), built_in_modules_list))
+			goto end;
+
+		/* if the line mentions the given module, report it is a built-in one */
+		if (NULL != strstr((char *) &line, (char *) &base_name)) {
+			is_built_in = true;
+			break;
+		}
+	} while (1);
+
+end:
+	return is_built_in;
+}
+
+bool _should_load_module(kmodule_loader_t *loader,
+                         const char *name,
+                         const char *path) {
+	/* if the module name was given, check whether it is a built-in one */
+	if (NULL != name) {
+		if (true == _is_module_built_in(loader, name))
+			return false;
+	}
+
+	/* if it isn't a built-in module, check whether it is already loaded */
+	if (true == _is_module_loaded(loader, name, path))
+		return false;
+
+	return true;
+}
+
 bool _kmodule_actually_load(kmodule_loader_t *loader,
                             const char *name,
                             const char *path,
@@ -527,8 +589,8 @@ bool kmodule_load(kmodule_loader_t *loader,
                   const char *name,
                   const char *path,
                   bool with_dependencies) {
-	/* if the module is already loaded, do nothing and report success */
-	if (true == _is_module_loaded(loader, name, path))
+	/* if the module should not be loaded, do nothing and report success */
+	if (false == _should_load_module(loader, name, path))
 		return true;
 
 	/* otherwise, load it */
@@ -628,8 +690,8 @@ bool kmodule_load_by_alias(kmodule_loader_t *loader, const char *alias) {
 		goto end;
 	}
 
-	/* if the module is already loaded, do nothing */
-	if (false == _is_module_loaded(loader, module.name, module.path)) {
+	/* if the module should not be loaded, do nothing */
+	if (true == _should_load_module(loader, module.name, module.path)) {
 
 		/* otherwise, load the kernel module and its dependencies */
 		if (false == _load_module(&module, true))
