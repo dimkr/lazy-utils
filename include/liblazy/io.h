@@ -36,4 +36,6 @@ bool file_log_from_dgram_socket(const int source, const int destination);
 
 bool file_enable_async_io(const int fd);
 
+bool file_print(const char *path);
+
 #endif

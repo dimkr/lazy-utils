@@ -264,3 +264,50 @@ bool file_enable_async_io(const int fd) {
 end:
 	return is_success;
 }
+
+bool file_print(const char *path) {
+	/* the return value */
+	bool is_success = false;
+
+	/* the file */
+	int file;
+
+	/* a buffer */
+	char buffer[FILE_READING_BUFFER_SIZE];
+
+	/* read chunk size */
+	ssize_t chunk_size;
+
+	/* open the file */
+	file = open(path, O_RDONLY);
+	if (-1 == file)
+		goto end;
+
+	do {
+		/* read a chunk from the file */
+		chunk_size = read(file, (char *) &buffer, sizeof(buffer));
+		if (-1 == chunk_size)
+			goto close_file;
+
+		/* print the read chunk */
+		if (chunk_size != write(STDOUT_FILENO,
+		                        (char *) &buffer,
+		                        (size_t) chunk_size))
+			goto close_file;
+
+		/* if the chunk is smaller than the buffer size, the file end was
+		 * reached */
+		if (sizeof(buffer) > chunk_size)
+			break;
+	} while (1);
+
+	/* report success */
+	is_success = true;
+
+close_file:
+	/* close the file */
+	(void) close(file);
+
+end:
+	return is_success;
+}

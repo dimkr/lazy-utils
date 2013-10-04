@@ -12,10 +12,14 @@
 #include <limits.h>
 #include <linux/loop.h>
 #include <errno.h>
+#include <liblazy/io.h>
 
 /* the number of available loop devices; should be equal to
  * CONFIG_BLK_DEV_LOOP_MIN_COUNT */
 #define LOOP_DEVICES_COUNT (8)
+
+/* the mounted file systems list */
+#define MOUNTED_FILE_SYSTEMS_LIST_PATH "/proc/mounts"
 
 bool _associate_with_loop_device(const char *device_path,
                                  int file,
@@ -233,6 +237,13 @@ int main(int argc, char *argv[]) {
 
 	/* a command-line option */
 	int option;
+
+	/* if no command-line arguments were specified, list mounted file systems */
+	if (1 == argc) {
+		if (true == file_print(MOUNTED_FILE_SYSTEMS_LIST_PATH))
+			exit_code = EXIT_SUCCESS;
+		goto end;
+	}
 
 	/* parse the command-line */
 	do {
