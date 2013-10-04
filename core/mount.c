@@ -110,7 +110,7 @@ end:
 }
 
 bool _parse_options(const char *type,
-                    const char *options,
+                    char *options,
                     int *flags,
                     bool *is_loop,
                     void **data) {
@@ -119,9 +119,6 @@ bool _parse_options(const char *type,
 
 	/* strtok_r()'s position inside the options string */
 	char *position;
-
-	/* a copy of the options string */
-	char *options_copy = NULL;
 
 	/* a token in the options string */
 	char *token;
@@ -146,15 +143,14 @@ bool _parse_options(const char *type,
 	if (NULL == options)
 		goto valid;
 
-	/* duplicate the constant options string */
-	options_copy = strdup(options);
-	if (NULL == options_copy)
+	/* if the options string is blank, report failure */
+	if (0 == strlen(options))
 		goto end;
 
 	/* start parsing the options string */
-	token = strtok_r((char *) options_copy, ",", &position);
+	token = strtok_r(options, ",", &position);
 	if (NULL == token)
-		goto free_options;
+		goto end;
 
 	/* split all tokens and set the matching bits */
 	do {
@@ -172,8 +168,25 @@ bool _parse_options(const char *type,
 					else {
 						if (0 == strcmp("nosuid", token))
 							*flags |= MS_NOSUID;
-						else
-							*data = (void *) options;
+						else {
+							/* if the option is unrecognized, append it to the
+							 * string passed to the driver */
+							if (NULL != *data) {
+								(void) sprintf((char *) *data,
+								               "%s,%s",
+								               (char *) *data,
+								               token);
+							} else {
+								/* allocate memory for an additional options
+								 * string */
+								*data = strdup(options);
+								if (NULL == *data)
+									goto end;
+
+								/* copy the token to the allocated string */
+								(void) strcpy((char *) *data, token);
+							}
+						}
 					}
 				}
 			}
@@ -184,11 +197,6 @@ bool _parse_options(const char *type,
 valid:
 	/* report success */
 	is_valid = true;
-
-free_options:
-	/* free the writable string */
-	if (NULL != options_copy)
-		(void) free(options_copy);
 
 end:
 	return is_valid;
@@ -281,13 +289,21 @@ int main(int argc, char *argv[]) {
 		if (false == _mount_file(argv[optind],
 		                         (char *) &loop_device,
 		                         loop_mode))
-			goto end;
+			goto free_data;
 		source = (char *) &loop_device;
 	}
 
 	/* mount the specified file system */
-	if (-1 != mount(source, argv[1 + optind], type, flags, data))
-		exit_code = EXIT_SUCCESS;
+	if (-1 == mount(source, argv[1 + optind], type, flags, data))
+		goto free_data;
+
+	/* report success */
+	exit_code = EXIT_SUCCESS;
+
+free_data:
+	/* free the data passed to the driver */
+	if (NULL != data)
+		free(data);
 
 end:
 	return exit_code;
