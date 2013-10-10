@@ -11,24 +11,38 @@ int main(int argc, char *argv[]) {
 	/* the sent signal */
 	int sent_signal;
 
+	/* the process ID, in textual form */
+	char *pid_textual;
+
 	/* the process ID */
 	pid_t pid;
 
-	/* make sure the number of command-line arguments is valid */
-	if (3 != argc)
-		goto end;
+	/* parse the command-line */
+	switch (argc) {
+		case 3:
+			/* decide which signal to send */
+			sent_signal = signal_option_to_int(argv[1]);
+			if (-1 == sent_signal)
+				goto end;
+
+			pid_textual = argv[2];
+			break;
+
+		case 2:
+			sent_signal = DEFAULT_TERMINATION_SIGNAL;
+			pid_textual = argv[1];
+			break;
+
+		default:
+			goto end;
+	}
 
 	/* convert the process ID to numeric form; do not allow sending a signal to
 	 * -1 (i.e all processes except init) or 0 (an invalid PID), but do not
 	 * check whether the PID exceeds the limit specified in
 	 * /proc/sys/kernel/pid_max, since kill() will fail and it's good enough */
-	pid = (pid_t) atoi(argv[2]);
+	pid = (pid_t) atoi(pid_textual);
 	if (0 >= pid)
-		goto end;
-
-	/* decide which signal to send */
-	sent_signal = signal_option_to_int(argv[1]);
-	if (-1 == sent_signal)
 		goto end;
 
 	/* send the signal */

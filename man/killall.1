@@ -4,9 +4,10 @@
 \- sends a signal to multiple processes
 .SH SYNOPSIS
 .B killall
-SIGNAL NAME
+[SIGNAL] NAME
 .SH DESCRIPTION
-Sends a signal to all processes which match a given name.
+Sends a signal to all processes which match a given name. If no signal is
+specified, the sent signal is SIGTERM.
 .TP
 .B -KILL
 Terminates each process immediately and brutally.

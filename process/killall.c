@@ -40,17 +40,27 @@ int main(int argc, char *argv[]) {
 	/* the callback parameters */
 	parameters_t parameters;
 
-	/* make sure the number of command-line arguments is valid */
-	if (3 != argc)
-		goto end;
+	/* parse the command-line */
+	switch (argc) {
+		case 3:
+			/* decide which signal to send */
+			parameters.sent_signal = signal_option_to_int(argv[1]);
+			if (-1 == parameters.sent_signal)
+				goto end;
 
-	/* decide which signal to send */
-	parameters.sent_signal = signal_option_to_int(argv[1]);
-	if (-1 == parameters.sent_signal)
-		goto end;
+			parameters.name = argv[2];
+			break;
+
+		case 2:
+			parameters.sent_signal = DEFAULT_TERMINATION_SIGNAL;
+			parameters.name = argv[1];
+			break;
+
+		default:
+			goto end;
+	}
 
 	/* kill matching processes */
-	parameters.name = argv[2];
 	if (false == for_each_process((process_callback_t) _kill_matching_processes,
 	                              &parameters))
 		goto end;
