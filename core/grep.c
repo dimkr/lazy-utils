@@ -12,7 +12,10 @@ int main(int argc, char *argv[]) {
 	int exit_code = EXIT_FAILURE;
 
 	/* a regular expression */
-	regex_t expression;
+	char *expression;
+
+	/* a compiled regular expression */
+	regex_t compiled_expression;
 
 	/* an input line */
 	char line[MAX_INPUT_LINE_SIZE];
@@ -20,12 +23,32 @@ int main(int argc, char *argv[]) {
 	/* the input line length */
 	size_t length;
 
-	/* make sure the number of command-line arguments is valid */
-	if (2 != argc)
-		goto end;
+	/* flag which indicates which lines should be printed */
+	bool should_match;
+
+	/* the regular expression matching result */
+	int result;
+
+	/* parse the command-line */
+	switch (argc) {
+		case 2:
+			expression = argv[1];
+			should_match = true;
+			break;
+
+		case 3:
+			if (0 != strcmp("-v", argv[1]))
+				goto end;
+			expression = argv[2];
+			should_match = false;
+			break;
+
+		default:
+			goto end;
+	}
 
 	/* compile the regular expression */
-	if (0 != regcomp(&expression, argv[1], REG_EXTENDED))
+	if (0 != regcomp(&compiled_expression, expression, REG_EXTENDED))
 		goto end;
 
 	do {
@@ -39,7 +62,9 @@ int main(int argc, char *argv[]) {
 			line[length - 1] = '\0';
 
 		/* if the line matches the given expression, print it */
-		if (0 == regexec(&expression, (char *) &line, 0, NULL, 0)) {
+		result = regexec(&compiled_expression, (char *) &line, 0, NULL, 0);
+		if (((0 == result) && (true == should_match)) ||
+		    ((REG_NOMATCH == result) && (false == should_match))) {
 			if (0 > printf("%s\n", (char *) &line))
 				goto free_expression;
 		}
@@ -50,7 +75,7 @@ int main(int argc, char *argv[]) {
 
 free_expression:
 	/* free the compiled regular expression */
-	regfree(&expression);
+	regfree(&compiled_expression);
 
 end:
 	return exit_code;
