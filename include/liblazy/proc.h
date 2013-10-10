@@ -2,6 +2,7 @@
 #	define _PROC_H_INCLUDED
 
 #	include <stdbool.h>
+#	include <signal.h>
 
 /* the proc mount point */
 #define PROC_MOUNT_POINT "/proc"
@@ -17,6 +18,9 @@
 
 /* the process information file path template */
 #define PROCESS_INFO_PATH_TEMPLATE PROC_MOUNT_POINT"/%s/status"
+
+/* the default signal used to kill processes */
+#define DEFAULT_TERMINATION_SIGNAL (SIGTERM)
 
 typedef bool (*process_callback_t)(const char *pid, void *parameter);
 

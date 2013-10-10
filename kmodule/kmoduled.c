@@ -78,11 +78,10 @@ bool _handle_existing_device(const char *path,
 	/* terminate the file contents */
 	module_alias[module_alias_length - sizeof(char)] = '\0';
 
-	/* load the matching kernel module */
-	if (false == kmodule_load_by_alias(loader, (char *) &module_alias))
-		goto close_file;
+	/* try to load the matching kernel module */
+	(void) kmodule_load_by_alias(loader, (char *) &module_alias);
 
-	/* if everything went fine, continue to the next device */
+	/* continue to the next device */
 	should_stop = false;
 
 close_file:
@@ -90,7 +89,6 @@ close_file:
 	(void) close(fd);
 
 end:
-	return false;
 	return should_stop;
 }
 
@@ -190,14 +188,20 @@ int main(int argc, char *argv[]) {
 	/* a kernel module loader */
 	kmodule_loader_t loader;
 
+	/* the signal which indicates there is data to log */
+	int io_signal;
+
 	/* make sure the number of command-line arguments is valid */
 	if (1 != argc)
 		goto end;
 
-	/* block SIGIO and SIGTERM signals */
+	/* pick the minimum real-time signal */
+	io_signal = SIGRTMIN;
+
+	/* block io_signal and SIGTERM signals */
 	if (-1 == sigemptyset(&signal_mask))
 		goto end;
-	if (-1 == sigaddset(&signal_mask, SIGIO))
+	if (-1 == sigaddset(&signal_mask, io_signal))
 		goto end;
 	if (-1 == sigaddset(&signal_mask, SIGTERM))
 		goto end;
@@ -234,7 +238,7 @@ int main(int argc, char *argv[]) {
 		goto close_system_log;
 
 	/* enable asynchronous I/O */
-	if (false == file_enable_async_io(ipc_socket))
+	if (false == file_enable_async_io(ipc_socket, io_signal))
 		goto close_system_log;
 
 	syslog(LOG_INFO, "waiting for uevents");

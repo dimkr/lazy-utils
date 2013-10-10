@@ -1,7 +1,7 @@
 BASE_DIR="$(pwd)"
 [ -z "$CC" ] && CC="cc"
-[ -z "$CFLAGS" ] && CFLAGS="-Os -mtune=generic"
-CFLAGS="-I$BASE_DIR/include -Wall -pedantic -D_GNU_SOURCE $CFLAGS"
+[ -z "$CFLAGS" ] && CFLAGS="-Os"
+CFLAGS="-I$BASE_DIR/include --std=c99 -Wall -pedantic -D_GNU_SOURCE $CFLAGS"
 
 echo "Building lazy-utils with $CC $CFLAGS"
 
@@ -23,9 +23,9 @@ else
 fi
 
 # link all applets
-for i in $(find $BASE_DIR -type f -name '*.o')
+find "$BASE_DIR" -type f -name '*.o' | while read i
 do
-	applet_name="$(basename $i .o)"
+	applet_name="$(basename "$i" .o)"
 
 	case "$i" in
 		$BASE_DIR/lib/*)
@@ -34,10 +34,6 @@ do
 
 		$BASE_DIR/login/*)
 			libraries="-lcrypt -llazy"
-			;;
-
-		$BASE_DIR/net/relayd.o)
-			libraries="-pthread -llazy"
 			;;
 
 		*)

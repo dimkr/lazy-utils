@@ -54,9 +54,49 @@ typedef struct {
 	int output;
 } peer_t;
 
-bool _should_drop_client(unsigned char *buffer,
-                         ssize_t buffer_size,
-                         const blacklist_t *blacklist) {
+void _get_peer_address(const peer_t *peer, char *string, socklen_t size) {
+	/* the client address */
+	struct sockaddr_storage client_address;
+
+	/* the client address size */
+	socklen_t client_address_size;
+
+	/* get the client address */
+	client_address_size = sizeof(client_address);
+	if (-1 == getpeername(peer->input,
+	                      (struct sockaddr *) &client_address,
+	                      &client_address_size))
+		goto end;
+
+	/* convert the client address to textual form */
+	switch (client_address.ss_family) {
+		case AF_INET6:
+			if (NULL == inet_ntop(
+			            AF_INET6,
+			            &(((struct sockaddr_in6 *) &client_address)->sin6_addr),
+			            string,
+			            size))
+				goto end;
+			return;
+
+		case AF_INET:
+			if (NULL == inet_ntop(
+			              AF_INET,
+			              &(((struct sockaddr_in *) &client_address)->sin_addr),
+			              string,
+			              size))
+				goto end;
+			return;
+	}
+
+end:
+	(void) strcpy(string, "(unknown)");
+}
+
+bool _should_drop_session(const peer_t *source,
+                          unsigned char *buffer,
+                          ssize_t buffer_size,
+                          const blacklist_t *blacklist) {
 	/* the return value */
 	bool should_drop = false;
 
@@ -66,9 +106,19 @@ bool _should_drop_client(unsigned char *buffer,
 	/* a loop index */
 	unsigned int i;
 
+	/* the peer address, in textual form */
+	char peer_address[INET6_ADDRSTRLEN];
+
+	/* get the peer address */
+	_get_peer_address(source, (char *) &peer_address, sizeof(peer_address));
+
 	/* if the chunk is too small, drop the connection - it could be a tiny
 	 * fragmentation attack */
 	if (blacklist->minimum_chunk_size > buffer_size) {
+		syslog(LOG_WARNING,
+		       "dropped traffic from %s; received a small chunk of %zd bytes",
+		       (char *) &peer_address,
+		       buffer_size);
 		should_drop = true;
 		goto end;
 	}
@@ -94,6 +144,10 @@ bool _should_drop_client(unsigned char *buffer,
 		                 0,
 		                 NULL,
 		                 0)) {
+			syslog(LOG_WARNING,
+			       "dropped traffic from %s; a traffic chunk matches \"%s\"",
+			       (char *) &peer_address,
+			       blacklist->items[i].pattern);
 			should_drop = true;
 			break;
 		}
@@ -104,62 +158,6 @@ bool _should_drop_client(unsigned char *buffer,
 
 end:
 	return should_drop;
-}
-
-void _log_offending_client(const peer_t *peer) {
-	/* the client address */
-	struct sockaddr_storage client_address;
-
-	/* the client address size */
-	socklen_t client_address_size;
-
-	/* the client address, in textual form */
-	char client_address_textual[INET6_ADDRSTRLEN];
-
-	/* get the client address */
-	client_address_size = sizeof(client_address);
-	if (-1 == getpeername(peer->input,
-	                      (struct sockaddr *) &client_address,
-	                      &client_address_size))
-		goto end;
-
-	/* convert the client address to textual form */
-	switch (client_address.ss_family) {
-		case AF_INET6:
-			if (NULL == inet_ntop(
-			            AF_INET6,
-			            &(((struct sockaddr_in6 *) &client_address)->sin6_addr),
-			            (char *) &client_address_textual,
-			            sizeof(client_address_textual)))
-				goto end;
-			break;
-
-		case AF_INET:
-			if (NULL == inet_ntop(
-			              AF_INET,
-			              &(((struct sockaddr_in *) &client_address)->sin_addr),
-			              (char *) &client_address_textual,
-			              sizeof(client_address_textual)))
-				goto end;
-			break;
-
-		default:
-			goto end;
-	}
-
-	/* open the system log */
-	openlog(LOG_IDENTITY, LOG_NDELAY | LOG_PID, LOG_USER);
-
-	/* log the client address */
-	syslog(LOG_WARNING,
-	       "dropped a connection from %s",
-	       (char *) &client_address_textual);
-
-	/* close the system log */
-	closelog();
-
-end:
-	;
 }
 
 bool _relay(unsigned char *buffer,
@@ -188,13 +186,12 @@ bool _relay(unsigned char *buffer,
 
 			default:
 				/* if the buffer contains a blacklisted expression, log the
-				 * client details and stop */
-				if (true == _should_drop_client(buffer,
-				                                chunk_size,
-				                                blacklist)) {
-					_log_offending_client(source);
+				 * source peer details and stop */
+				if (true == _should_drop_session(source,
+				                                 buffer,
+				                                 chunk_size,
+				                                 blacklist))
 					goto end;
-				}
 
 				/* send the chunk to the other socket */
 				if (chunk_size != write(destination->input,
@@ -361,6 +358,9 @@ int main(int argc, char *argv[]) {
 	/* the blacklist */
 	blacklist_t blacklist;
 
+	/* the signal which indicates there is data to relay */
+	int io_signal;
+
 	/* make sure the number of command-line arguments is valid */
 	if (3 != argc)
 		goto end;
@@ -394,10 +394,13 @@ int main(int argc, char *argv[]) {
 		goto free_blacklist;
 	relay_socket.output = relay_socket.input;
 
-	/* block SIGIO and SIGTERM signals */
+	/* pick the minimum real-time signal */
+	io_signal = SIGRTMIN;
+
+	/* block io_signal and SIGTERM signals */
 	if (-1 == sigemptyset(&signal_mask))
 		goto close_socket;
-	if (-1 == sigaddset(&signal_mask, SIGIO))
+	if (-1 == sigaddset(&signal_mask, io_signal))
 		goto close_socket;
 	if (-1 == sigaddset(&signal_mask, SIGTERM))
 		goto close_socket;
@@ -411,16 +414,20 @@ int main(int argc, char *argv[]) {
 		goto close_socket;
 
 	/* enable asynchronous I/O */
-	if (false == file_enable_async_io(STDIN_FILENO))
+	if (false == file_enable_async_io(STDIN_FILENO, io_signal))
 		goto close_socket;
-	if (false == file_enable_async_io(relay_socket.input))
+	if (false == file_enable_async_io(relay_socket.input, io_signal))
 		goto close_socket;
+
+	/* open the system log */
+	openlog(LOG_IDENTITY, LOG_NDELAY | LOG_PID, LOG_USER);
 
 	peer.input = STDIN_FILENO;
 	peer.output = STDOUT_FILENO;
 	do {
 		/* relay the received data; since it's impossible to know which socket
-		 * cause the SIGIO signal to be sent, try to relay in both directions */
+		 * caused the io_signal signal to be sent, try to relay in both
+		 * directions */
 		if (false == _relay(buffer,
 		                    RELAYING_BUFFER_SIZE,
 		                    &peer,
@@ -441,7 +448,7 @@ int main(int argc, char *argv[]) {
 			if (EAGAIN == errno)
 				break;
 			else
-				goto close_socket;
+				goto close_system_log;
 		}
 
 		/* if the received signal is a termination one, stop */
@@ -451,6 +458,10 @@ int main(int argc, char *argv[]) {
 
 	/* report success */
 	exit_code = EXIT_SUCCESS;
+
+close_system_log:
+	/* close the system log */
+	closelog();
 
 close_socket:
 	/* close the relay socket */

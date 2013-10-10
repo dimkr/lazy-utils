@@ -7,7 +7,6 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
-#include <semaphore.h>
 #include <syslog.h>
 #include <errno.h>
 #include <liblazy/io.h>
@@ -22,11 +21,8 @@
 /* the application name in the system log */
 #define LOG_IDENTITY "relayd"
 
-/* a semaphore used to limit the number of clients served at once */
-sem_t g_client_semaphore;
-
-/* the maximum interval to wait once the client limit is reached, in seconds */
-#define QUEUE_WAITING_TIMEOUT (30)
+void _signal_handler(int type, siginfo_t *info, void *context) {
+}
 
 int main(int argc, char *argv[]) {
 	/* the exit code */
@@ -62,11 +58,22 @@ int main(int argc, char *argv[]) {
 	/* one */
 	int one;
 
-	/* waiting timeout */
-	struct timespec timeout;
+	/* the signal which indicates there is a pending client */
+	int io_signal;
+
+	/* a signal action */
+	struct sigaction signal_action;
 
 	/* make sure the number of command-line arguments is valid */
 	if (4 != argc)
+		goto end;
+
+	/* assign a signal handler for SIGCHLD, which destroys zombie processes */
+	signal_action.sa_flags = SA_SIGINFO | SA_NOCLDWAIT | SA_NOCLDSTOP | SA_NODEFER;
+	signal_action.sa_sigaction = _signal_handler;
+	if (-1 == sigemptyset(&signal_action.sa_mask))
+		goto end;
+	if (-1 == sigaction(SIGCHLD, &signal_action, NULL))
 		goto end;
 
 	/* open the system log */
@@ -87,18 +94,17 @@ int main(int argc, char *argv[]) {
 	if (0 != getaddrinfo(NULL, argv[1], &hints, &local_address))
 		goto close_system_log;
 
-	/* add SIGIO, SIGTERM and SIGCHLD to the signal mask */
-	if (-1 == sigemptyset(&signal_mask))
-		goto close_system_log;
-	if (-1 == sigaddset(&signal_mask, SIGIO))
-		goto close_system_log;
-	if (-1 == sigaddset(&signal_mask, SIGTERM))
-		goto close_system_log;
-	if (-1 == sigaddset(&signal_mask, SIGCHLD))
-		goto close_system_log;
+	/* pick the minimum real-time signal */
+	io_signal = SIGRTMIN;
 
-	/* initialize the client semaphore */
-	if (-1 == sem_init(&g_client_semaphore, 0, CLIENTS_LIMIT))
+	/* add io_signal, SIGTERM and SIGCHLD to the signal mask */
+	if (-1 == sigemptyset(&signal_mask))
+		goto free_local_address;
+	if (-1 == sigaddset(&signal_mask, io_signal))
+		goto free_local_address;
+	if (-1 == sigaddset(&signal_mask, SIGTERM))
+		goto free_local_address;
+	if (-1 == sigaddset(&signal_mask, SIGCHLD))
 		goto free_local_address;
 
 	/* create a socket */
@@ -106,9 +112,9 @@ int main(int argc, char *argv[]) {
 	                      local_address->ai_socktype,
 	                      local_address->ai_protocol);
 	if (-1 == listening_socket)
-		goto destroy_semaphore;
+		goto free_local_address;
 
-	/* block SIGIO and SIGTERM signals */
+	/* block io_signal and SIGTERM signals */
 	if (-1 == sigprocmask(SIG_BLOCK, &signal_mask, NULL))
 		goto close_socket;
 
@@ -136,7 +142,7 @@ int main(int argc, char *argv[]) {
 		goto close_socket;
 
 	/* enable asynchronous I/O */
-	if (false == file_enable_async_io(listening_socket))
+	if (false == file_enable_async_io(listening_socket, io_signal))
 		goto close_socket;
 
 	do {
@@ -145,37 +151,13 @@ int main(int argc, char *argv[]) {
 		if (-1 == sigwaitinfo(&signal_mask, &received_signal))
 			goto close_socket;
 
+		/* if the received signal is a termination one, stop */
 		switch (received_signal.si_signo) {
 			case SIGCHLD:
-				/* destroy the zombie process */
-				if (received_signal.si_pid != waitpid(received_signal.si_pid,
-				                                      NULL,
-				                                      WNOHANG))
-					goto close_socket;
-
-				/* unlock the semaphore */
-				if (-1 == sem_post(&g_client_semaphore))
-					goto close_socket;
-
-				/* wait for the next signal */
 				continue;
 
-			/* if the received signal is a termination one, stop */
 			case SIGTERM:
 				goto success;
-		}
-
-		/* lock the semaphore; signals are blocked and therefore not handled,
-		 * but it's impossible to use sigprocmask() to unblock them, so we use
-		 * sem_timedwait() instead of sem_wait() - i.e of SIGTERM was sent, it
-		 * will be handled once the timeout expires */
-		timeout.tv_sec = QUEUE_WAITING_TIMEOUT;
-		timeout.tv_nsec = 0;
-		if (-1 == sem_timedwait(&g_client_semaphore, &timeout)) {
-			if (ETIMEDOUT == errno)
-				continue;
-			else
-				goto close_socket;
 		}
 
 		/* accept a client */
@@ -201,9 +183,6 @@ int main(int argc, char *argv[]) {
 
 				/* free the listening address */
 				freeaddrinfo(local_address);
-
-				/* destroy the semaphore, for the same reason */
-				(void) sem_destroy(&g_client_semaphore);
 
 				/* close the system log */
 				closelog();
@@ -262,10 +241,6 @@ success:
 close_socket:
 	/* close the listening socket */
 	(void) close(listening_socket);
-
-destroy_semaphore:
-	/* destroy the semaphore */
-	(void) sem_destroy(&g_client_semaphore);
 
 free_local_address:
 	/* free the local address */

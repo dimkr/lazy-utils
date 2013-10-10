@@ -174,10 +174,16 @@ bool _file_log(const int source,
 	/* a received signal */
 	int received_signal;
 
-	/* start blocking SIGIO and SIGTERM */
+	/* the signal which indicates there is data to log */
+	int io_signal;
+
+	/* pick the minimum real-time signal */
+	io_signal = SIGRTMIN;
+
+	/* start blocking io_signal and SIGTERM */
 	if (-1 == sigemptyset(&signal_mask))
 		goto end;
-	if (-1 == sigaddset(&signal_mask, SIGIO))
+	if (-1 == sigaddset(&signal_mask, io_signal))
 		goto end;
 	if (-1 == sigaddset(&signal_mask, SIGTERM))
 		goto end;
@@ -185,7 +191,7 @@ bool _file_log(const int source,
 		goto end;
 
 	/* enable non-blocking, asynchronous I/O */
-	if (false == file_enable_async_io(source))
+	if (false == file_enable_async_io(source, io_signal))
 		goto end;
 
 	do {
@@ -238,7 +244,7 @@ bool file_log_from_dgram_socket(const int source, const int destination) {
 	return _file_log(source, _dgram_socket_read, destination);
 }
 
-bool file_enable_async_io(const int fd) {
+bool file_enable_async_io(const int fd, const int io_signal) {
 	/* the return value */
 	bool is_success = false;
 
@@ -248,6 +254,10 @@ bool file_enable_async_io(const int fd) {
 	/* get the message source flags */
 	flags = fcntl(fd, F_GETFL);
 	if (-1 == flags)
+		goto end;
+
+	/* set the received signal */
+	if (-1 == fcntl(fd, F_SETSIG, io_signal))
 		goto end;
 
 	/* enable non-blocking, asynchronous I/O */
