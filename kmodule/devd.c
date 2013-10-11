@@ -31,7 +31,7 @@
 #define MAX_MODULE_ALIAS_LENGTH (1023)
 
 /* the source of system log messages */
-#define LOG_IDENTITY "kmoduled"
+#define LOG_IDENTITY "devd"
 
 /* the buffer size for received messages */
 #define BUFFER_SIZE (FILE_READING_BUFFER_SIZE)
@@ -233,7 +233,7 @@ int main(int argc, char *argv[]) {
 
 	/* load kernel modules for existing devices */
 	syslog(LOG_INFO,
-	       "kmoduled has started; loading kernel modules for existing devices");
+	       "devd has started; loading kernel modules for existing devices");
 	if (true == _handle_existing_devices(&loader))
 		goto close_system_log;
 
