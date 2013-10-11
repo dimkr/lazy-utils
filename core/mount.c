@@ -127,6 +127,9 @@ bool _parse_options(const char *type,
 	/* a token in the options string */
 	char *token;
 
+	/* the options string length */
+	size_t length;
+
 	/* if both the bind mount and mount point moving flags were passed, report
 	 * failure */
 	if ((MS_BIND == (*flags & MS_BIND)) && (MS_MOVE == (*flags & MS_MOVE)))
@@ -148,7 +151,8 @@ bool _parse_options(const char *type,
 		goto valid;
 
 	/* if the options string is blank, report failure */
-	if (0 == strlen(options))
+	length = strlen(options);
+	if (0 == length)
 		goto end;
 
 	/* start parsing the options string */
@@ -183,7 +187,7 @@ bool _parse_options(const char *type,
 							} else {
 								/* allocate memory for an additional options
 								 * string */
-								*data = strdup(options);
+								*data = malloc(sizeof(char) * length);
 								if (NULL == *data)
 									goto end;
 
