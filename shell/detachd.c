@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
 		goto end;
 
 	/* create a named pipe under the temporary file path */
-	if (-1 == mkfifo((char *) &fifo_path, O_RDWR))
+	if (-1 == mkfifo((char *) &fifo_path, S_IWUSR | S_IRUSR))
 		goto end;
 
 	/* open the pipe */
