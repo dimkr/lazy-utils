@@ -26,8 +26,15 @@ bool _run_script(const char *path, pid_t *pid) {
 	/* the process ID */
 	pid_t parent_pid;
 
+	/* the process signal mask */
+	sigset_t signal_mask;
+
 	/* get the process ID */
 	parent_pid = getpid();
+
+	/* empty the signal mask */
+	if (-1 == sigemptyset(&signal_mask))
+		goto end;
 
 	/* create a child process */
 	*pid = fork();
@@ -36,6 +43,10 @@ bool _run_script(const char *path, pid_t *pid) {
 			goto end;
 
 		case (0):
+			/* reset the child process signal mask */
+			if (-1 == sigprocmask(SIG_SETMASK, &signal_mask, NULL))
+				goto end;
+
 			/* in the child process, run the init script */
 			(void) execl(path, path, (char *) NULL);
 
@@ -86,7 +97,7 @@ int main() {
 		goto end;
 	if (-1 == sigaddset(&signal_mask, SIGUSR2))
 		goto end;
-	if (-1 == sigprocmask(SIG_BLOCK, &signal_mask, NULL))
+	if (-1 == sigprocmask(SIG_SETMASK, &signal_mask, NULL))
 		goto end;
 
 	/* run the init script */

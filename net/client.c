@@ -414,7 +414,7 @@ int main(int argc, char *argv[]) {
 		goto close_socket;
 	if (-1 == sigaddset(&signal_mask, SIGTERM))
 		goto close_socket;
-	if (-1 == sigprocmask(SIG_BLOCK, &signal_mask, NULL))
+	if (-1 == sigprocmask(SIG_SETMASK, &signal_mask, NULL))
 		goto close_socket;
 
 	/* connect to the server */

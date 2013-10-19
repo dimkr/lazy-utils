@@ -69,6 +69,9 @@ int main(int argc, char *argv[]) {
 	/* a signal mask */
 	sigset_t signal_mask;
 
+	/* the original signal mask */
+	sigset_t original_signal_mask;
+
 	/* the signal which indicates there is output to read */
 	int output_signal;
 
@@ -100,7 +103,7 @@ int main(int argc, char *argv[]) {
 		goto end;
 	if (-1 == sigaddset(&signal_mask, SIGCHLD))
 		goto end;
-	if (-1 == sigprocmask(SIG_BLOCK, &signal_mask, NULL))
+	if (-1 == sigprocmask(SIG_SETMASK, &signal_mask, &original_signal_mask))
 		goto end;
 
 	/* daemonize */
@@ -133,6 +136,10 @@ int main(int argc, char *argv[]) {
 			goto close_socket;
 
 		case 0:
+			/* restore the original signal mask */
+			if (-1 == sigprocmask(SIG_SETMASK, &original_signal_mask, NULL))
+				goto terminate_child;
+
 			/* redirect the child process output to the pipe */
 			if (-1 == close(STDIN_FILENO))
 				goto terminate_child;
@@ -199,9 +206,10 @@ wait_for_a_signal:
 			                                         sizeof(packet.buffer));
 			switch (packet.header.size) {
 				case (-1):
-					if (EAGAIN != errno)
+					if (EAGAIN == errno)
+						goto wait_for_a_signal;
+					else
 						goto close_socket;
-					break;
 
 				case 0:
 					goto wait_for_a_signal;

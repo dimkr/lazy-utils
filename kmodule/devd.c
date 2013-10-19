@@ -205,7 +205,7 @@ int main(int argc, char *argv[]) {
 		goto end;
 	if (-1 == sigaddset(&signal_mask, SIGTERM))
 		goto end;
-	if (-1 == sigprocmask(SIG_BLOCK, &signal_mask, NULL))
+	if (-1 == sigprocmask(SIG_SETMASK, &signal_mask, NULL))
 		goto end;
 
 	/* initialize the kernel module loader */

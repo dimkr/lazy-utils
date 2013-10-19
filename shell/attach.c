@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
 		goto end;
 	if (-1 == sigaddset(&signal_mask, SIGINT))
 		goto end;
-	if (-1 == sigprocmask(SIG_BLOCK, &signal_mask, NULL))
+	if (-1 == sigprocmask(SIG_SETMASK, &signal_mask, NULL))
 		goto end;
 
 	/* create a socket */
@@ -85,10 +85,10 @@ int main(int argc, char *argv[]) {
 		packet_size = recv(output_socket, (void *) &packet, sizeof(packet), 0);
 		switch (packet_size) {
 			case (-1):
+			case 0:
 				goto delete_socket;
 
 			default:
-
 				switch (packet.header.type) {
 					/* if the child process has terminated, report success */
 					case PACKET_TYPE_CHILD_EXIT:
