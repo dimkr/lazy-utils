@@ -1,0 +1,21 @@
+.TH detachd 1
+.SH NAME
+.B detachd
+\- runs a process in the background
+.SH SYNOPSIS
+.B detachd
+SOCKET COMMAND
+.SH DESCRIPTION
+Runs a process independently, in the background.
+
+The first command-line argument is a path passed to
+.B attach(1),
+for reading the process output.
+.SH SIGNALS
+.TP
+.B SIGTERM
+Stops the process
+.SH "SEE ALSO"
+.B attach(1)
+.SH AUTHOR
+Dima Krasner (dima@dimakrasner.com)
