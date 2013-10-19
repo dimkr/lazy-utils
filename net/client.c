@@ -33,6 +33,10 @@
 /* the application name in the system log */
 #define LOG_IDENTITY "client"
 
+/* the sleep interval between the termination of a session and the process
+ * termination */
+#define CLIENT_DROP_SLEEP_INTERVAL (5)
+
 /* a blacklist expression */
 typedef struct {
 	char *pattern;
@@ -120,7 +124,7 @@ bool _should_drop_session(const peer_t *source,
 		       (char *) &peer_address,
 		       buffer_size);
 		should_drop = true;
-		goto end;
+		goto drop;
 	}
 
 	/* if the blacklist is empty, do nothing */
@@ -149,12 +153,18 @@ bool _should_drop_session(const peer_t *source,
 			       (char *) &peer_address,
 			       blacklist->items[i].pattern);
 			should_drop = true;
-			break;
+			goto drop;
 		}
 	}
 
 	/* revert the last byte back to its original value */
 	buffer[buffer_size - 1] = last_byte;
+	goto end;
+
+drop:
+	/* shut down one side of the session, to cause the peer's send() to fail */
+	if (0 == shutdown(source->input, SHUT_RD))
+		(void) sleep(CLIENT_DROP_SLEEP_INTERVAL);
 
 end:
 	return should_drop;
