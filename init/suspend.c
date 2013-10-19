@@ -5,12 +5,16 @@
 #include <unistd.h>
 #include <liblazy/common.h>
 
-int main() {
+int main(int argc, char *argv[]) {
 	/* the exit code */
 	int exit_code;
 
 	/* the system state file */
 	int fd;
+
+	/* make sure the number of command-line arguments is valid */
+	if (1 != argc)
+		goto end;
 
 	/* open the system state file */
 	fd = open("/sys/power/state", O_WRONLY);
