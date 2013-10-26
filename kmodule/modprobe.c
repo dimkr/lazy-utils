@@ -9,40 +9,17 @@ int main(int argc, char *argv[]) {
 	/* a kernel module loader */
 	kmodule_loader_t loader;
 
-	/* the loaded module */
-	char *module;
-
-	/* a flag which indicates whether the module loading should be logged */
-	bool is_quiet = false;
-
-	/* parse the command-line */
-	switch (argc) {
-		case (2):
-			module = argv[1];
-			break;
-
-		case (3):
-			if (0 != strcmp(argv[1], "-q"))
-				goto end;
-			is_quiet = true;
-			module = argv[2];
-			break;
-
-		default:
-			goto end;
-	}
+	/* make sure the number of command-line arguments is valid */
+	if (2 != argc)
+		goto end;
 
 	/* initialize the kernel module loader */
-	if (false == kmodule_loader_init(&loader, is_quiet))
+	if (false == kmodule_loader_init(&loader))
 		goto end;
 
 	/* load the kernel module and its dependencies, in reverse order */
-	if (false == kmodule_load(&loader, module, NULL, true)) {
-
-		/* it the module was not found, the specified name could be an alias -
-		 * the kernel passes aliases (i.e for file system names) in
-		 * call_modprobe() */
-		if (false == kmodule_load_by_alias(&loader, module))
+	if (false == kmodule_load_by_name(&loader, argv[1], "", true)) {
+		if (false == kmodule_load_by_alias(&loader, argv[1], "", true))
 			goto destroy_loader;
 	}
 

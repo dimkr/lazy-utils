@@ -21,13 +21,13 @@ int main(int argc, char *argv[]) {
 	/* unload the kernel module */
 	if (-1 == syscall(SYS_delete_module, argv[1], 0)) {
 		syslog(LOG_ERR,
-		       "failed to unload %s."KMODULE_FILE_NAME_EXTENSION,
+		       "failed to unload %s."KERNEL_MODULE_FILE_NAME_EXTENSION,
 		       argv[1]);
 		goto close_system_log;
 	}
 
 	/* report success */
-	syslog(LOG_INFO, "unloaded %s."KMODULE_FILE_NAME_EXTENSION, argv[1]);
+	syslog(LOG_INFO, "unloaded %s."KERNEL_MODULE_FILE_NAME_EXTENSION, argv[1]);
 	exit_code = EXIT_SUCCESS;
 
 close_system_log:

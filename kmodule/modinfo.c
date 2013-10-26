@@ -13,9 +13,6 @@ int main(int argc, char *argv[]) {
 	/* the kernel module */
 	kmodule_t module;
 
-	/* the kernel module information */
-	kmodule_info_t info;
-
 	/* loop indices */
 	unsigned int i;
 	unsigned int j;
@@ -25,34 +22,29 @@ int main(int argc, char *argv[]) {
 		goto end;
 
 	/* initialize the kernel module loader */
-	if (false == kmodule_loader_init(&loader, true))
+	if (false == kmodule_loader_init(&loader))
 		goto end;
 
-	/* read the kernel module, by name or path */
-	if (false == kmodule_open(&loader, &module, argv[1], NULL)) {
-		if (false == kmodule_open(&loader, &module, NULL, argv[1]))
-			goto destroy_loader;
-	}
+	/* find the kernel module, by name */
+	if (false == kmodule_open_module_by_name(&loader, &module, argv[1]))
+		goto destroy_loader;
 
 	/* obtain the kernel module information */
-	if (false == kmodule_info_get(&module, &info))
+	if (false == kmodule_get_info(&module))
 		goto close_module;
 
 	/* print the kernel module information */
-	(void) printf("filename: %s\n", module.path);
-	for (i = 0; ARRAY_SIZE(info._fields) > i; ++i) {
-		for (j = 0; info._fields[i].count > j; ++j) {
+	(void) printf("filename: %s\n", (char *) &module.path);
+	for (i = 0; ARRAY_SIZE(module._fields) > i; ++i) {
+		for (j = 0; module._fields[i].count > j; ++j) {
 			(void) printf("%s: %s\n",
 			              g_kmodule_fields[i],
-			              info._fields[i].values[j]);
+			              module._fields[i].values[j]);
 		}
 	}
 
 	/* report success */
 	exit_code = EXIT_SUCCESS;
-
-	/* free the module information */
-	kmodule_info_free(&info);
 
 close_module:
 	/* close the kernel module */

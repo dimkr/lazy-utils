@@ -1,309 +1,336 @@
-#include <libgen.h>
 #include <string.h>
-#include <strings.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <errno.h>
 #include <sys/syscall.h>
+#include <errno.h>
 #include <fnmatch.h>
-#include <syslog.h>
-#include <limits.h>
+#include <libgen.h>
 #include <liblazy/io.h>
+#include <liblazy/common.h>
 #include <liblazy/kmodule.h>
 
-bool kmodule_loader_init(kmodule_loader_t *loader, bool is_quiet) {
-	/* open the system log */
-	if (false == is_quiet)
-		openlog(KMODULE_LOG_IDENTITY, LOG_NDELAY | LOG_PID, LOG_USER);
+bool kmodule_loader_init(kmodule_loader_t *loader) {
+	/* the return value */
+	bool is_success = false;
 
-	/* initialize the logging flag */
-	loader->is_quiet = is_quiet;
+	/* open the list of loaded modules */
+	loader->loaded_modules = fopen(LOADED_KERNEL_MODULES_LIST_PATH, "r");
+	if (NULL == loader->loaded_modules)
+		goto end;
 
-	/* initialize the cache files */
-	loader->modules_list = NULL;
-	loader->dependencies_list = NULL;
-	loader->aliases_list = NULL;
-	loader->loaded_modules_list = NULL;
+	/* open the cache file */
+	if (false == cache_open(&loader->cache, KERNEL_MODULE_CACHE_PATH))
+		goto close_cache_file;
 
-	return true;
+	/* report success */
+	is_success = true;
+	goto end;
+
+close_cache_file:
+	/* close the cache file */
+	cache_close(&loader->cache);
+
+end:
+	return is_success;
 }
 
 void kmodule_loader_destroy(kmodule_loader_t *loader) {
-	/* close the cache files */
-	if (NULL != loader->modules_list)
-		(void) fclose(loader->modules_list);
-	if (NULL != loader->dependencies_list)
-		(void) fclose(loader->dependencies_list);
-	if (NULL != loader->aliases_list)
-		(void) fclose(loader->aliases_list);
+	/* close the cache file */
+	cache_close(&loader->cache);
 
-	/* close the system log */
-	if (false == loader->is_quiet)
-		closelog();
+	/* close the list of loaded modules */
+	(void) fclose(loader->loaded_modules);
 }
 
-void _loader_log(kmodule_loader_t *loader,
-                 int priority,
-                 const char *format,
-                 const char *arg) {
-	if (false == loader->is_quiet)
-		syslog(priority, format, arg);
+bool _get_module_name(const char *path, char *name) {
+	/* the return value */
+	bool is_success = false;
+
+	/* a substring */
+	char *position;
+
+	/* copy the base file name and strip the extension */
+	(void) strcpy(name, basename((char *) path));
+	position = strchr(name, '.');
+	if (NULL == position)
+		goto end;
+	position[0] = '\0';
+
+	/* replace '-' with '_', as the kernel does in the list of loaded modules */
+	do {
+		position = strchr(name, '-');
+		if (NULL == position)
+			break;
+		position[0] = '_';
+	} while (1);
+
+	/* report success */
+	is_success = true;
+
+end:
+	return is_success;
 }
 
-void _open_cache_file(kmodule_loader_t *loader,
-                      const char *path,
-                      FILE **handle) {
-	/* if the file was already opened, do nothing */
-	if (NULL != *handle)
-		goto rewind;
+bool _open_module(kmodule_t *module) {
+	/* the return value */
+	bool is_success = false;
 
-	/* otherwise, open it */
-	*handle = fopen(path, "r");
-	if (NULL == *handle)
-		return;
+	/* a loop index */
+	unsigned int i;
 
-rewind:
-	/* return to the beginning of the file */
-	rewind(*handle);
+	/* get the module name */
+	if (false == _get_module_name((char *) &module->path,
+	                              (char *) &module->name))
+		goto end;
+
+	/* read the kernel module */
+	if (false == file_read(&module->file, (char *) &module->path))
+		goto end;
+
+	/* initialize the module information fields */
+	for (i = 0; ARRAY_SIZE(module->_fields) > i; ++i) {
+		module->_fields[i].values = NULL;
+		module->_fields[i].count = 0;
+	}
+
+	/* report success */
+	is_success = true;
+
+end:
+	return is_success;
 }
 
-FILE *_get_aliases_list(kmodule_loader_t *loader) {
-	_open_cache_file(loader, KMODULE_ALIAS_LIST_PATH, &loader->aliases_list);
-	return loader->aliases_list;
+void kmodule_close(kmodule_t *module) {
+	/* loop indices */
+	int i;
+
+	/* free all module information fields */
+	for (i = ARRAY_SIZE(module->_fields) - 1; 0 <= i; --i) {
+		if (0 == module->_fields[i].count)
+			continue;
+		free(module->_fields[i].values);
+	}
+
+	/* close the kernel module */
+	file_close(&module->file);
 }
 
-FILE *_get_modules_list(kmodule_loader_t *loader) {
-	_open_cache_file(loader, KMODULE_LIST_PATH, &loader->modules_list);
-	return loader->modules_list;
+bool kmodule_open_module_by_path(kmodule_t *module, const char *path) {
+	/* the return value */
+	bool is_success = false;
+
+	/* copy the module path */
+	(void) strcpy((char *) &module->path, path);
+
+	/* initialize the cached module details pointer */
+	module->cache_entry = NULL;
+
+	/* open the module */
+	if (false == _open_module(module))
+		goto end;
+
+	/* report success */
+	is_success = true;
+
+end:
+	return is_success;
 }
 
-FILE *_get_dependencies_list(kmodule_loader_t *loader) {
-	_open_cache_file(loader,
-	                 KMODULE_DEPENDENCIES_LIST_PATH,
-	                 &loader->dependencies_list);
-	return loader->dependencies_list;
-}
-
-FILE *_get_loaded_modules_list(kmodule_loader_t *loader) {
-	_open_cache_file(loader,
-	                 KMODULE_LOADED_MODULES_LIST_PATH,
-	                 &loader->loaded_modules_list);
-	return loader->loaded_modules_list;
-}
-
-FILE *_get_built_in_modules_list(kmodule_loader_t *loader) {
-	_open_cache_file(loader,
-	                 KMODULE_BUILT_IN_LIST_PATH,
-	                 &loader->built_in_modules_list);
-	return loader->built_in_modules_list;
-}
-
-bool _locate_module_by_name(kmodule_loader_t *loader,
-                            const char *name,
-                            char *path) {
+bool kmodule_open_module_by_name(kmodule_loader_t *loader,
+                                 kmodule_t *module,
+                                 const char *name) {
 	/* the return value */
 	bool is_found = false;
 
-	/* the kernel modules list */
-	FILE *modules_list;
-
-	/* a line in the kernel modules list */
-	char line[PATH_MAX];
-
-	/* the line length */
-	int line_length;
-
 	/* the kernel module path */
-	char *module_path;
+	char *path;
 
-	/* the kernel module file name */
-	char name_with_extension[NAME_MAX];
+	/* the path length */
+	size_t length;
 
-	/* format the module file name */
-	(void) sprintf((char *) &name_with_extension,
-	               "%s.%s",
-	               name,
-	               KMODULE_FILE_NAME_EXTENSION);
-
-	/* open the kernel modules list */
-	modules_list = _get_modules_list(loader);
-	if (NULL == modules_list)
+	/* fetch the module path from the cache */
+	if (false == cache_file_get_by_string(&loader->cache,
+	                                      CACHE_TYPE_KERNEL_MODULE_PATH,
+	                                      name,
+	                                      (unsigned char **) &path,
+	                                      &length))
 		goto end;
 
-	do {
-		/* read one line */
-		if (NULL == fgets((char *) &line, sizeof(line), modules_list))
-			goto end;
+	/* copy and terminate the path */
+	(void) strncpy((char *) &module->path, path, length);
+	module->path[length] = '\0';
 
-		/* strip the trailing line break, if there is any */
-		line_length = strlen(line);
-		if ('\n' == line[line_length - sizeof(char)])
-			line[line_length - sizeof(char)] = '\0';
+	/* save a pointer to the cached module details */
+	module->cache_entry = (cache_entry_header_t *) path;
 
-		/* locate the separator between the module name and its path */
-		module_path = strchr((char *) &line, KMODULE_LIST_DELIMETER);
-		if (NULL == module_path)
-			goto end;
+	/* open the module */
+	if (false == _open_module(module))
+		goto end;
 
-		/* replace the separator with a NULL byte and skip it */
-		module_path[0] = '\0';
-		++module_path;
-
-		/* check whether the name matches */
-		if (0 != strcmp((char *) &line, (char *) &name_with_extension))
-			continue;
-
-		/* return the full file path */
-		(void) strcpy(path, module_path);
-
-		/* report success */
-		is_found = true;
-		break;
-	} while (1);
+	/* report success */
+	is_found = true;
 
 end:
 	return is_found;
 }
 
-bool kmodule_open(kmodule_loader_t *loader,
-                  kmodule_t *module,
-                  const char *name,
-                  const char *path) {
-	/* the return value */
-	bool is_success = false;
+typedef struct {
+	const char *alias;
+	crc32_t hash;
+} _module_alias_match_t;
 
-	if (NULL == path) {
-		/* if the module was specified by its name, locate it */
-		if (NULL != name) {
-			if (false == _locate_module_by_name(loader,
-			                                    name,
-			                                    (char *) &module->_path)) {
-				_loader_log(loader,
-				            LOG_ERR,
-				            "failed to locate %s."KMODULE_FILE_NAME_EXTENSION,
-				            name);
-				goto end;
-			}
-			return kmodule_open(loader, module, NULL, (char *) &module->_path);
-		} else
-			goto end;
-	}
-
-	/* copy the path, to prevent use-after-free errors */
-	if ((char *) &module->_path != path)
-		(void) strcpy((char *) &module->_path, path);
-	module->path = (char *) &module->_path;
-
-	/* initialize the other structure members */
-	module->mod_contents = NULL;
-	module->name = name;
-	module->loader = loader;
-
-	/* report success */
-	is_success = true;
-
-end:
-	return is_success;
-}
-
-bool _get_module_contents(kmodule_t *module) {
-	if (NULL != module->mod_contents)
-		return true;
-
-	/* read the module */
-	if (false == file_read(&module->file, module->path))
+bool _does_module_match_alias(const cache_entry_header_t *entry,
+                              const char *cached_alias,
+                              _module_alias_match_t *match) {
+	/* check whether given alias matches the cached one */
+	if (0 != fnmatch(cached_alias, match->alias, 0))
 		return false;
+
+	/* save the module name hash */
+	match->hash = entry->hash;
 
 	return true;
 }
 
-void kmodule_close(kmodule_t *module) {
-	/* free the kernel module contents */
-	if (NULL != module->mod_contents)
-		file_close(&module->file);
-}
-
-bool _find_info_field(kmodule_t *module,
-                      const char *name,
-                      kmodule_var_t *field) {
+bool _open_module_by_alias(kmodule_loader_t *loader,
+                           kmodule_t *module,
+                           const char *alias) {
 	/* the return value */
 	bool is_success = false;
 
-	/* a loop index */
-	size_t j;
+	/* the module name search results */
+	_module_alias_match_t match;
 
-	/* field name length */
-	int length;
+	/* the module path */
+	char *path;
 
-	/* a values array */
-	const char **values;
-
-	/* read the module contents */
-	if (false == _get_module_contents(module)) {
-		_loader_log(module->loader, LOG_ERR, "failed to read %s", module->path);
+	/* find the module which matches the alias and obtain its name hash */
+	match.alias = alias;
+	if (false == cache_search(&loader->cache,
+	                          CACHE_TYPE_KERNEL_MODULE_ALIASES,
+	                          (cache_callback_t) _does_module_match_alias,
+	                          &match))
 		goto end;
-	}
+
+	/* get the module path, using the hash */
+	if (false == cache_file_get_by_hash(&loader->cache,
+	                                    CACHE_TYPE_KERNEL_MODULE_PATH,
+	                                    match.hash,
+	                                    (unsigned char **) &path,
+	                                    NULL))
+		goto end;
+
+	/* open the module */
+	if (false == kmodule_open_module_by_path(module, path))
+		goto end;
+
+	/* report success */
+	is_success = true;
+
+end:
+	return is_success;
+}
+
+char **_allocate_additional_value(kmodule_field_t *field) {
+	/* the newly allocated value */
+	char **new_value = NULL;
+
+	/* the enlarged values array */
+	char **values;
+
+	/* the number of fields in the enlarged array */
+	unsigned int count;
+
+	/* enlarge the values array */
+	count = 1 + field->count;
+	values = realloc(field->values, ELEMENT_SIZE(field->values) * count);
+	if (NULL == values)
+		goto end;
+
+	/* return a pointer to the new value */
+	new_value = &values[field->count];
+	field->values = values;
+	field->count = count;
+
+end:
+	return new_value;
+}
+
+bool _get_field_values(kmodule_t *module,
+                       kmodule_field_t *field,
+                       const char *name) {
+	/* the return value */
+	bool is_success = false;
+
+	/* the current position within the module contents */
+	unsigned char *position;
+
+	/* the current offset inside the module contents */
+	size_t offset;
+
+	/* the field value */
+	char **value;
+
+	/* the field name length */
+	size_t length;
+
+	/* if the field values were already found, do nothing */
+	if (0 < field->count)
+		goto success;
 
 	/* get the field name length */
 	length = strlen(name);
 
-	/* initialize the field values array */
-	field->values = NULL;
-	field->count = 0;
+	/* start at the module beginning */
+	position = module->file.contents;
+	offset = 0;
 
-	for (j = 0; (module->mod_size - length) > j; ++j) {
-		/* skip NULL bytes */
-		if ('\0' == module->mod_contents[j])
-			continue;
+	while ((module->file.size - length - (2 * sizeof(char))) > offset) {
+		/* check whether the current position contains the field name */
+		if (0 != strncmp((char *) position, name, length))
+			goto next;
 
-		/* compare the kernel module contents at the current offset with the
-		 * field name */
-		if (0 != strncmp(name, (char *) &module->mod_contents[j], length))
-			continue;
+		/* check whether the field name ends with a '=' */
+		if ('=' != position[length])
+			goto next;
 
-		/* if the field name is not followed by a '=' character, continue to
-		 * the next offset */
-		if ('=' != module->mod_contents[length + j])
-			continue;
-
-		/* enlarge the field values array */
-		values = realloc(field->values,
-		                 (ELEMENT_SIZE(field->values) * (1 + field->count)));
-		if (NULL == values)
+		/* allocate memory for an additional value */
+		value = _allocate_additional_value(field);
+		if (NULL == value)
 			goto end;
-		field->values = values;
 
-		/* save a pointer to the character right after the '=' */
-		field->values[field->count] = \
-		              (char *) &module->mod_contents[sizeof(char) + length + j];
-		++(field->count);
+		/* save a pointer to the field value */
+		*value = (char *) &position[1 + length];
+
+next:
+		/* locate the first character of the field name */
+		++position;
+		offset = position - module->file.contents;
+		position = memchr(position, name[0], module->file.size - offset);
+		if (NULL == position)
+			break;
 	}
 
-	/* report success */
+success:
+	/* report succcess */
 	is_success = true;
 
 end:
 	return is_success;
 }
 
-void _free_info_field(kmodule_var_t *field) {
-	/* free the values array */
-	if (NULL != field->values)
-		free(field->values);
-}
-
-bool kmodule_info_get(kmodule_t *module, kmodule_info_t *info) {
+bool kmodule_get_info(kmodule_t *module) {
 	/* the return value */
 	bool is_success = false;
 
 	/* a loop index */
 	unsigned int i;
 
-	/* locate all fields */
+	/* get the values of all fields */
 	for (i = 0; ARRAY_SIZE(g_kmodule_fields) > i; ++i) {
-		if (false == _find_info_field(module,
-		                              g_kmodule_fields[i],
-		                              &info->_fields[i]))
+		if (false == _get_field_values(module,
+		                               &module->_fields[i],
+		                               g_kmodule_fields[i]))
 			goto end;
 	}
 
@@ -314,264 +341,158 @@ end:
 	return is_success;
 }
 
-void kmodule_info_free(kmodule_info_t *info) {
-	/* a loop index */
-	unsigned int i;
-
-	/* free all fields */
-	for (i = 0; ARRAY_SIZE(info->_fields) > i; ++i)
-		_free_info_field(&info->_fields[i]);
-}
-
-char *_get_module_dependencies(kmodule_t *module) {
-	/* the kernel module dependencies list */
-	FILE *dependencies_list;
-
-	/* a line in the kernel modules list */
-	char line[PATH_MAX];
-
-	/* the line length */
-	int line_length;
-
-	/* the kernel module dependencies */
-	char *dependencies;
-
-	/* the return value */
-	char *return_value = NULL;
-
-	/* open the kernel modules list */
-	dependencies_list = _get_dependencies_list(module->loader);
-	if (NULL == dependencies_list)
-		goto end;
-
-	do {
-		/* read one line */
-		if (NULL == fgets((char *) &line, sizeof(line), dependencies_list))
-			goto end;
-
-		/* strip the trailing line break, if there is any */
-		line_length = strlen(line);
-		if ('\n' == line[line_length - sizeof(char)])
-			line[line_length - sizeof(char)] = '\0';
-
-		/* locate the separator between the module path and its dependencies */
-		dependencies = strchr((char *) &line, KMODULE_LIST_DELIMETER);
-		if (NULL == dependencies)
-			goto end;
-
-		/* replace the separator with a NULL byte and skip it */
-		dependencies[0] = '\0';
-		++dependencies;
-
-		/* check whether the path matches */
-		if (0 != strcmp((char *) &line, module->path))
-			continue;
-
-		/* return a writable copy of the dependencies list */
-		return_value = strdup(dependencies);
-
-		break;
-	} while (1);
-
-end:
-	return return_value;
-}
-
-bool _load_module(kmodule_t *module,
-                  bool with_dependencies) {
-	/* the return value */
-	bool is_success = false;
-
-	/* the kernel module dependencies */
+char *_get_dependencies(kmodule_t *module) {
+	/* the module dependencies */
 	char *dependencies = NULL;
 
-	/* a dependency module */
-	char *dependency;
+	/* locate the module dependencies field */
+	if (false == _get_field_values(module,
+	                               &module->mod_depends,
+	                               KERNEL_MODULE_DEPENDENCIES_FIELD))
+		goto end;
 
-	/* strtok_r()'s position within the dependencies string */
-	char *position;
-
-	if (true == with_dependencies) {
-		/* obtain the kernel module dependencies; if it's either missing or
-		 * empty, just load the module itself */
-		dependencies = _get_module_dependencies(module);
-		if (NULL == dependencies)
-			goto end;
-
-		/* start splitting the dependencies list */
-		dependency = strtok_r(dependencies, ",", &position);
-		if (NULL == dependency)
-			goto load_module;
-
-		/* load each dependency */
-		do {
-			if (false == kmodule_load(module->loader, dependency, NULL, true))
-				goto end;
-			dependency = strtok_r(NULL, ",", &position);
-		} while (NULL != dependency);
-	}
-
-load_module:
-	/* read the module contents */
-	if (false == _get_module_contents(module))
-		goto free_dependencies;
-
-	/* load the module itself; if it's already loaded, it's fine */
-	if (-1 == syscall(SYS_init_module,
-	                  module->mod_contents,
-	                  module->mod_size,
-	                  "")) {
-		if (EEXIST != errno)
-			goto free_dependencies;
-	}
-
-	/* report success */
-	is_success = true;
-
-free_dependencies:
-	/* free the dependencies string */
-	if (true == with_dependencies)
-		free(dependencies);
+	/* assume the dependencies field appears only once */
+	if (0 == module->mod_depends.count)
+		goto end;
+	dependencies = module->mod_depends.values[0];
 
 end:
-	if (false == is_success)
-		_loader_log(module->loader, LOG_ERR, "failed to load %s", module->path);
-	else
-		_loader_log(module->loader, LOG_INFO, "loaded %s", module->path);
-
-	return is_success;
+	return dependencies;
 }
 
-bool _is_module_loaded(kmodule_loader_t *loader,
-                       const char *name,
-                       const char *path) {
+bool _is_module_loaded(kmodule_loader_t *loader, const kmodule_t *module) {
 	/* the return value */
 	bool is_loaded = false;
 
-	/* the list of loaded modules */
-	FILE *loaded_modules;
+	/* a line in the list of loaded modules */
+	char line[LOADED_KERNEL_MODULES_LIST_MAX_ENTRY_SIZE];
 
-	/* a line in the loaded modules list */
-	char line[1 + KMODULE_MAX_LOADED_MODULE_ENTRY_LENGTH];
+	/* a substring */
+	char *position;
 
-	/* the position of a delimeter in a string */
-	char *delimeter;
-
-	/* the file base name */
-	char base_name[PATH_MAX];
-
-	if (NULL == name) {
-		/* copy the path, so it can be modified by basename() */
-		(void) strcpy((char *) &base_name, path);
-
-		/* get the base file name */
-		name = basename((char *) &base_name);
-
-		/* strip the extension */
-		delimeter = strrchr(name, '.');
-		if (NULL == delimeter)
-			goto end;
-		delimeter[0] = '\0';
-	}
-
-	/* open the list of loaded modules */
-	loaded_modules = _get_loaded_modules_list(loader);
-	if (NULL == loaded_modules)
-		goto end;
+	/* start at the list head */
+	rewind(loader->loaded_modules);
 
 	do {
 		/* read an entry */
-		if (NULL == fgets((char *) &line, STRLEN(line), loaded_modules))
+		if (NULL == fgets((char *) &line, sizeof(line), loader->loaded_modules))
 			break;
 
-		/* separate the module name and terminate it */
-		delimeter = strchr((char *) &line, ' ');
-		if (NULL == delimeter)
-			continue;
-		delimeter[0] = '\0';
+		/* locate the first space and terminate the module name */
+		position = strchr((char *) &line, ' ');
+		if (NULL == position)
+			break;
+		position[0] = '\0';
 
-		/* if the module name matches, stop */
-		if (0 == strcmp((char *) &line, name)) {
+		/* compare the module names */
+		if (0 == strcmp((char *) module->name, (char *) &line)) {
 			is_loaded = true;
 			break;
 		}
 	} while (1);
 
-end:
 	return is_loaded;
 }
 
-bool _is_module_built_in(kmodule_loader_t *loader, const char *name) {
-	/* the return value */
-	bool is_built_in = false;
-
-	/* the kernel module base name, with a leading / */
-	char base_name[NAME_MAX];
-
-	/* the built-in modules list */
-	FILE *built_in_modules_list;
-
-	/* a line in the aliases list */
-	char line[PATH_MAX];
-
-	/* open the built-in modules list */
-	built_in_modules_list = _get_built_in_modules_list(loader);
-	if (NULL == built_in_modules_list)
-		goto end;
-
-	/* format the module file name */
-	(void) sprintf((char *) &base_name,
-	               "/%s."KMODULE_FILE_NAME_EXTENSION,
-	               name);
-
-	do {
-		/* read one line */
-		if (NULL == fgets((char *) &line, sizeof(line), built_in_modules_list))
-			goto end;
-
-		/* if the line mentions the given module, report it is a built-in one */
-		if (NULL != strstr((char *) &line, (char *) &base_name)) {
-			is_built_in = true;
-			break;
-		}
-	} while (1);
-
-end:
-	return is_built_in;
+bool _is_module_blacklisted(const kmodule_t *module) {
+	return false;
 }
 
-bool _should_load_module(kmodule_loader_t *loader,
-                         const char *name,
-                         const char *path) {
-	/* if the module name was given, check whether it is a built-in one */
-	if (NULL != name) {
-		if (true == _is_module_built_in(loader, name))
-			return false;
-	}
+bool _should_load(kmodule_loader_t *loader, const kmodule_t *module) {
+	if (true == _is_module_loaded(loader, module))
+		return false;
 
-	/* if it isn't a built-in module, check whether it is already loaded */
-	if (true == _is_module_loaded(loader, name, path))
+	if (true == _is_module_blacklisted(module))
 		return false;
 
 	return true;
 }
 
-bool _kmodule_actually_load(kmodule_loader_t *loader,
-                            const char *name,
-                            const char *path,
-                            bool with_dependencies) {
+bool _load_module(kmodule_loader_t *loader,
+                  kmodule_t *module,
+                  const char *parameters,
+                  bool with_dependencies) {
+	/* the return value */
+	bool is_success = false;
+
+	/* the module dependencies */
+	char *dependencies;
+
+	/* a single dependency */
+	char *dependency;
+
+	/* strtok_r()'s current position within the dependencies list */
+	char *position;
+
+	/* if the module should not be loaded, do nothing */
+	if (false == _should_load(loader, module)) {
+		is_success = true;
+		goto end;
+	}
+
+	if (false == with_dependencies)
+		dependencies = NULL;
+	else {
+		/* get the module dependencies */
+		dependencies = _get_dependencies(module);
+
+		if (NULL != dependencies) {
+			/* obtain a writable copy of the dependencies list */
+			dependencies = strdup(dependencies);
+			if (NULL == dependencies)
+				goto end;
+
+			/* start splitting the dependencies list; if it's empty, do
+			 * nothing */
+			dependency = strtok_r(dependencies, ",", &position);
+			if (NULL == dependency)
+				goto load_module;
+
+			/* load each dependency */
+			do {
+				if (false == kmodule_load_by_name(loader, dependency, "", true))
+					goto free_dependencies;
+				dependency = strtok_r(NULL, ",", &position);
+			} while (NULL != dependency);
+		}
+	}
+
+load_module:
+	/* load the module */
+	if (-1 == syscall(SYS_init_module,
+	                  module->file.contents,
+	                  module->file.size,
+	                  parameters))
+		goto free_dependencies;
+
+	/* report success */
+	is_success = true;
+
+free_dependencies:
+	/* free the module dependencies list */
+	if (NULL != dependencies)
+		free(dependencies);
+
+end:
+	return is_success;
+}
+
+bool kmodule_load_by_name(kmodule_loader_t *loader,
+                          const char *name,
+                          const char *parameters,
+                          bool with_dependencies) {
 	/* the return value */
 	bool is_success = false;
 
 	/* the kernel module */
 	kmodule_t module;
 
-	/* read the kernel module */
-	if (false == kmodule_open(loader, &module, name, path))
+	/* locate the kernel module */
+	if (false == kmodule_open_module_by_name(loader, &module, name))
 		goto end;
 
 	/* load the module */
-	if (false == _load_module(&module, with_dependencies))
+	if (false == _load_module(loader, &module, parameters, with_dependencies))
 		goto close_module;
 
 	/* report success */
@@ -585,118 +506,23 @@ end:
 	return is_success;
 }
 
-bool kmodule_load(kmodule_loader_t *loader,
-                  const char *name,
-                  const char *path,
-                  bool with_dependencies) {
-	/* if the module should not be loaded, do nothing and report success */
-	if (false == _should_load_module(loader, name, path))
-		return true;
-
-	/* otherwise, load it */
-	return _kmodule_actually_load(loader, name, path, with_dependencies);
-}
-
-bool _does_alias_match(const char *alias, kmodule_info_t *module_info) {
-	/* the return value */
-	bool does_match = false;
-
-	/* a loop index */
-	unsigned int i;
-
-	/* match the given alias against all aliases provided by the module */
-	for (i = 0; module_info->mod_alias.count > i; ++i) {
-		if (0 == fnmatch(module_info->mod_alias.values[i], alias, 0)) {
-			does_match = true;
-			break;
-		}
-	}
-
-	return does_match;
-}
-
-bool _find_module_for_alias(kmodule_loader_t *loader,
-                            const char *alias,
-                            kmodule_t *module) {
-	/* the return value */
-	bool is_found = false;
-
-	/* the module aliases list */
-	FILE *aliases_list;
-
-	/* a line in the aliases list */
-	char line[PATH_MAX];
-
-	/* the line length */
-	int line_length;
-
-	/* the kernel module path */
-	char *path;
-
-	/* open the module aliases list */
-	aliases_list = _get_aliases_list(loader);
-	if (NULL == aliases_list)
-		goto end;
-
-	do {
-		/* read one line */
-		if (NULL == fgets((char *) &line, sizeof(line), aliases_list))
-			goto end;
-
-		/* strip the trailing line break, if there is any */
-		line_length = strlen(line);
-		if ('\n' == line[line_length - sizeof(char)])
-			line[line_length - sizeof(char)] = '\0';
-
-		/* locate the separator between the alias and the module path */
-		path = strchr((char *) &line, KMODULE_LIST_DELIMETER);
-		if (NULL == path)
-			goto end;
-
-		/* replace the separator with a NULL byte and skip it */
-		path[0] = '\0';
-		++path;
-
-		/* check whether the alias matches */
-		if (0 != fnmatch((char *) &line, alias, 0))
-			continue;
-
-		/* open the kernel module */
-		if (false == kmodule_open(loader, module, NULL, path))
-			continue;
-
-		/* report success */
-		is_found = true;
-		break;
-	} while (1);
-
-end:
-	return is_found;
-}
-
-bool kmodule_load_by_alias(kmodule_loader_t *loader, const char *alias) {
+bool kmodule_load_by_alias(kmodule_loader_t *loader,
+                           const char *alias,
+                           const char *parameters,
+                           bool with_dependencies) {
 	/* the return value */
 	bool is_success = false;
 
 	/* the kernel module */
 	kmodule_t module;
 
-	/* locate the most appropriate module for the given alias */
-	if (false == _find_module_for_alias(loader, alias, &module)) {
-		_loader_log(loader,
-		            LOG_ERR,
-		            "failed to find a kernel module for %s",
-		            alias);
+	/* locate the kernel module */
+	if (false == _open_module_by_alias(loader, &module, alias))
 		goto end;
-	}
 
-	/* if the module should not be loaded, do nothing */
-	if (true == _should_load_module(loader, module.name, module.path)) {
-
-		/* otherwise, load the kernel module and its dependencies */
-		if (false == _load_module(&module, true))
-			goto close_module;
-	}
+	/* load the module */
+	if (false == _load_module(loader, &module, parameters, with_dependencies))
+		goto close_module;
 
 	/* report success */
 	is_success = true;

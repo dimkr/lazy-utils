@@ -79,7 +79,7 @@ bool _handle_existing_device(const char *path,
 	module_alias[module_alias_length - sizeof(char)] = '\0';
 
 	/* try to load the matching kernel module */
-	(void) kmodule_load_by_alias(loader, (char *) &module_alias);
+	(void) kmodule_load_by_alias(loader, (char *) &module_alias, "", true);
 
 	/* continue to the next device */
 	should_stop = false;
@@ -152,7 +152,7 @@ bool _handle_new_device(kmodule_loader_t *loader,
 
 	/* if a device was added, load its kernel module */
 	if (0 == strcmp("add", action)) {
-		if (false == kmodule_load_by_alias(loader, module_alias))
+		if (false == kmodule_load_by_alias(loader, module_alias, "", true))
 			goto end;
 	}
 
@@ -209,7 +209,7 @@ int main(int argc, char *argv[]) {
 		goto end;
 
 	/* initialize the kernel module loader */
-	if (false == kmodule_loader_init(&loader, false))
+	if (false == kmodule_loader_init(&loader))
 		goto end;
 
 	/* create a netlink socket */
@@ -232,8 +232,7 @@ int main(int argc, char *argv[]) {
 	openlog(LOG_IDENTITY, LOG_NDELAY, LOG_USER);
 
 	/* load kernel modules for existing devices */
-	syslog(LOG_INFO,
-	       "devd has started; loading kernel modules for existing devices");
+	syslog(LOG_INFO, "devd has started");
 	if (true == _handle_existing_devices(&loader))
 		goto close_system_log;
 

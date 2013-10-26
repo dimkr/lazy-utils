@@ -13,11 +13,11 @@ int main(int argc, char *argv[]) {
 		goto end;
 
 	/* initialize the kernel module loader */
-	if (false == kmodule_loader_init(&loader, false))
+	if (false == kmodule_loader_init(&loader))
 		goto end;
 
 	/* load the kernel module, without its dependencies */
-	if (false == kmodule_load(&loader, NULL, argv[1], false))
+	if (false == kmodule_load_by_name(&loader, argv[1], "", false))
 		goto destroy_loader;
 
 	/* report success */

@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
 	char *dependent_modules_count;
 
 	/* a line in the loaded modules list */
-	char line[1 + KMODULE_MAX_LOADED_MODULE_ENTRY_LENGTH];
+	char line[LOADED_KERNEL_MODULES_LIST_MAX_ENTRY_SIZE];
 
 	/* strtok_r()'s position within the line */
 	char *position;
@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
 		goto end;
 
 	/* open the list of loaded modules */
-	loaded_modules = fopen(KMODULE_LOADED_MODULES_LIST_PATH, "r");
+	loaded_modules = fopen(LOADED_KERNEL_MODULES_LIST_PATH, "r");
 	if (NULL == loaded_modules)
 		goto end;
 

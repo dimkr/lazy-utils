@@ -3,53 +3,37 @@
 
 #	include <stdio.h>
 #	include <stdbool.h>
-#	include <sys/types.h>
 #	include <limits.h>
 #	include <liblazy/common.h>
 #	include <liblazy/io.h>
+#	include <liblazy/cache.h>
 
-#	define KMODULE_LIST_PATH "/lib/modules/modules.order"
-#	define KMODULE_ALIAS_LIST_PATH "/lib/modules/modules.alias"
-#	define KMODULE_DEPENDENCIES_LIST_PATH "/lib/modules/modules.dep"
-#	define KMODULE_BUILT_IN_LIST_PATH "/lib/modules/modules.builtin"
-#	define KMODULE_LOADED_MODULES_LIST_PATH "/proc/modules"
-#	define KMODULE_DIRECTORY "/lib/modules"
+#	define KERNEL_MODULE_DIRECTORY "/lib/modules"
 
-#	define KMODULE_FILE_NAME_EXTENSION "ko"
+#	define KERNEL_MODULE_CACHE_PATH KERNEL_MODULE_DIRECTORY"/modules.cache"
 
-#	define KMODULE_LIST_DELIMETER '#'
+#	define KERNEL_MODULE_FILE_NAME_EXTENSION "ko"
 
-#	define KMODULE_MAX_LOADED_MODULE_ENTRY_LENGTH (511)
+#	define LOADED_KERNEL_MODULES_LIST_PATH "/proc/modules"
 
-/* the application name of system log message written by the library */
-#	define KMODULE_LOG_IDENTITY "kmodule"
+#	define LOADED_KERNEL_MODULES_LIST_MAX_ENTRY_SIZE (1024)
+
+enum kernel_module_cache_types {
+	CACHE_TYPE_KERNEL_MODULE_PATH,
+	CACHE_TYPE_KERNEL_MODULE_ALIASES
+};
 
 typedef struct {
-	bool is_quiet;
-	FILE *modules_list;
-	FILE *dependencies_list;
-	FILE *aliases_list;
-	FILE *loaded_modules_list;
-	FILE *built_in_modules_list;
+	FILE *loaded_modules;
+	cache_file_t cache;
 } kmodule_loader_t;
 
-typedef struct {
-	file_t file;
-	const char *name;
-	char base_name[NAME_MAX];
-	const char *path;
-	char _path[PATH_MAX];
-	kmodule_loader_t *loader;
-} kmodule_t;
-
-typedef struct {
-	const char **values;
-	unsigned int count;
-} kmodule_var_t;
+#	define KERNEL_MODULE_DEPENDENCIES_FIELD "depends"
+#	define KERNEL_MODULE_ALIAS_FIELD "alias"
 
 const static char *g_kmodule_fields[] = {
-	"depends",
-	"alias",
+	KERNEL_MODULE_DEPENDENCIES_FIELD,
+	KERNEL_MODULE_ALIAS_FIELD,
 	"author",
 	"description",
 	"filename",
@@ -63,23 +47,40 @@ const static char *g_kmodule_fields[] = {
 };
 
 typedef struct {
-	kmodule_var_t _fields[ARRAY_SIZE(g_kmodule_fields)];
-} kmodule_info_t;
+	char **values;
+	unsigned int count;
+} kmodule_field_t;
 
-#	define mod_contents		file.contents
-#	define mod_size			file.size
-#	define mod_depends		_fields[0]
-#	define mod_alias		_fields[1]
+typedef struct {
+	cache_entry_header_t *cache_entry;
+	char name[NAME_MAX];
+	char path[PATH_MAX];
+	file_t file;
+	kmodule_field_t _fields[ARRAY_SIZE(g_kmodule_fields)];
+} kmodule_t;
 
-bool kmodule_loader_init(kmodule_loader_t *loader, bool is_quiet);
+#	define mod_depends	_fields[0]
+#	define mod_alias	_fields[1]
+
+bool kmodule_loader_init(kmodule_loader_t *loader);
 void kmodule_loader_destroy(kmodule_loader_t *loader);
 
-bool kmodule_open(kmodule_loader_t *loader, kmodule_t *module, const char *name, const char *path);
-void kmodule_close(kmodule_t *module);
-bool kmodule_info_get(kmodule_t *module, kmodule_info_t *info);
-void kmodule_info_free(kmodule_info_t *info);
+bool kmodule_open_module_by_path(kmodule_t *module, const char *path);
+bool kmodule_open_module_by_name(kmodule_loader_t *loader,
+                                 kmodule_t *module,
+                                 const char *name);
 
-bool kmodule_load(kmodule_loader_t *loader, const char *name, const char *path, bool with_dependencies);
-bool kmodule_load_by_alias(kmodule_loader_t *loader, const char *alias);
+void kmodule_close(kmodule_t *module);
+
+bool kmodule_get_info(kmodule_t *module);
+
+bool kmodule_load_by_name(kmodule_loader_t *loader,
+                          const char *name,
+                          const char *parameters,
+                          bool with_dependencies);
+bool kmodule_load_by_alias(kmodule_loader_t *loader,
+                           const char *alias,
+                           const char *parameters,
+                           bool with_dependencies);
 
 #endif
