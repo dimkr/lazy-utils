@@ -78,36 +78,6 @@ bool cache_file_get_by_hash(cache_file_t *cache,
 	                    type,
 	                    (cache_callback_t) _get_first_match,
 	                    &parameters);
-
-#if 0
-	/* the return value */
-	bool is_found = false;
-
-	/* the corrent position within the cache file */
-	unsigned char *position;
-
-	/* a cache entry header */
-	cache_entry_header_t *header;
-
-	/* check each entry's hash until a match is found */
-	position = cache->file.contents;
-	do {
-		header = (cache_entry_header_t *) position;
-		position += sizeof(cache_entry_header_t);
-		if (type == header->type) {
-			if (hash == header->hash) {
-				*value = position;
-				if (NULL != size)
-					*size = header->size;
-				is_found = true;
-				break;
-			}
-		}
-		position += header->size;
-	} while (cache->file.size > (position - cache->file.contents));
-
-	return is_found;
-#endif
 }
 
 bool cache_file_add(const int fd,
@@ -130,8 +100,10 @@ bool cache_file_add(const int fd,
 		goto end;
 
 	/* write the value */
-	if ((ssize_t) value_size != write(fd, value, value_size))
-		goto end;
+	if (0 != value_size) {
+		if ((ssize_t) value_size != write(fd, value, value_size))
+			goto end;
+	}
 
 	/* report success */
 	is_success = true;

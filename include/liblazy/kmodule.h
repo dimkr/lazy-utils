@@ -10,7 +10,7 @@
 
 #	define KERNEL_MODULE_DIRECTORY "/lib/modules"
 
-#	define KERNEL_MODULE_CACHE_PATH KERNEL_MODULE_DIRECTORY"/modules.cache"
+#	define KERNEL_MODULE_CACHE_PATH "/var/run/kmodule.cache"
 
 #	define KERNEL_MODULE_FILE_NAME_EXTENSION "ko"
 
@@ -18,9 +18,12 @@
 
 #	define LOADED_KERNEL_MODULES_LIST_MAX_ENTRY_SIZE (1024)
 
+#	define KERNEL_MODULE_BLACKLIST_PATH "/etc/kmodule.blacklist"
+
 enum kernel_module_cache_types {
 	CACHE_TYPE_KERNEL_MODULE_PATH,
-	CACHE_TYPE_KERNEL_MODULE_ALIASES
+	CACHE_TYPE_KERNEL_MODULE_ALIASES,
+	CACHE_TYPE_KERNEL_MODULE_BLACKLIST
 };
 
 typedef struct {
@@ -55,6 +58,7 @@ typedef struct {
 	cache_entry_header_t *cache_entry;
 	char name[NAME_MAX];
 	char path[PATH_MAX];
+	crc32_t hash;
 	file_t file;
 	kmodule_field_t _fields[ARRAY_SIZE(g_kmodule_fields)];
 } kmodule_t;

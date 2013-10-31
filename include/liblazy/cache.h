@@ -17,6 +17,9 @@ typedef struct {
 	file_t file;
 } cache_file_t;
 
+#define HASH_STRING(string) \
+	crc32_hash((const unsigned char *) string, strlen(string))
+
 bool cache_open(cache_file_t *cache, const char *path);
 void cache_close(cache_file_t *cache);
 
@@ -32,8 +35,7 @@ bool cache_file_get_by_hash(cache_file_t *cache,
                                  value_size) \
 	cache_file_get_by_hash(cache, \
 	                       type, \
-	                       crc32_hash((const unsigned char *) string, \
-	                                  strlen((const char *) string)), \
+	                       HASH_STRING(string), \
 	                       value, \
 	                       value_size)
 

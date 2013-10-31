@@ -88,6 +88,59 @@ end:
 	return should_stop;
 }
 
+bool _cache_blacklist(const int fd) {
+	/* the return value */
+	bool is_success = false;
+
+	/* the module blacklist */
+	FILE *blacklist;
+
+	/* a blacklisted module */
+	char module[NAME_MAX];
+
+	/* the module name length */
+	size_t length;
+
+	/* open the blacklist */
+	blacklist = fopen(KERNEL_MODULE_BLACKLIST_PATH, "r");
+	if (NULL == blacklist)
+		goto end;
+
+	do {
+		/* read the name of one blacklisted module */
+		if (NULL == fgets((char *) &module, sizeof(module), blacklist))
+			break;
+		length = strlen((char *) &module);
+
+		/* ignore empty lines and strip trailing line breaks */
+		if ('\n' == module[length - 1]) {
+			if (1 == length)
+				continue;
+			module[length - 1] = '\0';
+			--length;
+		}
+
+		/* cache the blacklisted module name */
+		if (false == cache_file_add(fd,
+		                            CACHE_TYPE_KERNEL_MODULE_BLACKLIST,
+		                            (const unsigned char *) &module,
+		                            length,
+		                            NULL,
+		                            0))
+			goto close_blacklist;
+	} while (1);
+
+	/* report success */
+	is_success = true;
+
+close_blacklist:
+	/* close the blacklist */
+	(void) fclose(blacklist);
+
+end:
+	return is_success;
+}
+
 int main(int argc, char *argv[]) {
 	/* the exit code */
 	int exit_code = EXIT_FAILURE;
@@ -111,6 +164,10 @@ int main(int argc, char *argv[]) {
 	                          "*."KERNEL_MODULE_FILE_NAME_EXTENSION,
 	                          (void *) (intptr_t) cache_file,
 	                          (file_callback_t) _cache_module))
+		goto close_cache_file;
+
+	/* cache the list of blacklisted modules */
+	if (false == _cache_blacklist(cache_file))
 		goto close_cache_file;
 
 	/* report success */

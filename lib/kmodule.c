@@ -394,15 +394,27 @@ bool _is_module_loaded(kmodule_loader_t *loader, const kmodule_t *module) {
 	return is_loaded;
 }
 
-bool _is_module_blacklisted(const kmodule_t *module) {
+bool _is_blacklisted(const cache_entry_header_t *entry,
+                     const char *value,
+                     void *hash) {
+	if ((crc32_t) ((intptr_t) hash) == entry->hash)
+		return true;
+
 	return false;
+}
+
+bool _is_module_blacklisted(kmodule_loader_t *loader, const kmodule_t *module) {
+	return cache_search(&loader->cache,
+	                    CACHE_TYPE_KERNEL_MODULE_BLACKLIST,
+	                    (cache_callback_t) _is_blacklisted,
+	                    (void *) (intptr_t) HASH_STRING(module->name));
 }
 
 bool _should_load(kmodule_loader_t *loader, const kmodule_t *module) {
 	if (true == _is_module_loaded(loader, module))
 		return false;
 
-	if (true == _is_module_blacklisted(module))
+	if (true == _is_module_blacklisted(loader, module))
 		return false;
 
 	return true;
