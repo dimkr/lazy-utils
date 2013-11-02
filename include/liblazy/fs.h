@@ -1,10 +1,8 @@
 #ifndef _FS_H_INCLUDED
 #	define _FS_H_INCLUDED
 
-#	include <stddef.h>
 #	include <stdint.h>
 #	include <sys/types.h>
-#	include <linux/ext2_fs.h>
 #	include <linux/magic.h>
 #	include <liblazy/common.h>
 
@@ -18,20 +16,21 @@ typedef struct {
 static const _fs_magic_t g_file_systems[] = {
 	{
 		"ext4",
-		EXT2_SUPER_MAGIC,
-		sizeof(((struct ext2_super_block *) NULL)->s_magic),
-		1024 + offsetof(struct ext2_super_block, s_magic)
+		0xEF53, /* EXT4_SUPER_MAGIC, defined in magic.h */
+		sizeof(uint16_t),
+		1024 + /* the first superblock is at offset 1024 */ \
+		56 /* the offset of s_magic inside struct ext2_super_block */
 	},
 	{
 		"xfs",
 		0x58465342, /* XFS_SB_MAGIC, defined in fs/xfs/xfs_sb.h */
-		sizeof(__uint32_t),
+		sizeof(uint32_t),
 		0 /* xfs_sb_t begins with XFS_SB_MAGIC */
 	},
 	{
 		"squashfs",
 		SQUASHFS_MAGIC,
-		sizeof(__le32),
+		sizeof(uint32_t),
 		0 /* struct squashfs_super_block begins with SQUASHFS_MAGIC */
 	}
 };
