@@ -189,17 +189,15 @@ bool greeter_login(greeter_t *greeter, const char *user) {
 	char user_fallback[1 + MAX_USER_NAME_LENGTH];
 
 	/* print the contents of /etc/issue */
-	if (true == greeter->is_interactive) {
-		if (false == terminal_print_file(&greeter->terminal, "/etc/issue"))
-			goto end;
-	}
+	if (true == greeter->is_interactive)
+		(void) terminal_print_file(&greeter->terminal, "/etc/issue");
 
 	/* if no user name was specified, show a user name prompt */
 	if (NULL == user) {
 		if (false == terminal_read(&greeter->terminal,
-								   (char *) &user_fallback,
-								   sizeof(user_fallback),
-								   "Log in as: "))
+		                           (char *) &user_fallback,
+		                           sizeof(user_fallback),
+		                           "Log in as: "))
 			goto end;
 		user = (char *) &user_fallback;
 	}
@@ -217,10 +215,8 @@ bool greeter_login(greeter_t *greeter, const char *user) {
 		goto end;
 
 	/* print the contents of /etc/motd */
-	if (true == greeter->is_interactive) {
-		if (false == terminal_print_file(&greeter->terminal, "/etc/motd"))
-			goto end;
-	}
+	if (true == greeter->is_interactive)
+		(void) terminal_print_file(&greeter->terminal, "/etc/motd");
 
 	/* report success */
 	is_success = true;
