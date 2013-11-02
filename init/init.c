@@ -8,10 +8,10 @@
 #include <sys/reboot.h>
 
 /* the init script path */
-#define INIT_SCRIPT_PATH "/etc/init.d/startup"
+#define INIT_SCRIPT_PATH "/etc/rc.d/rc.sysinit"
 
 /* the shutdown script path */
-#define SHUTDOWN_SCRIPT_PATH "/etc/init.d/shutdown"
+#define SHUTDOWN_SCRIPT_PATH "/etc/rc.d/rc.shutdown"
 
 #define PRINT(x) (void) write(STDOUT_FILENO, x, sizeof(x))
 
