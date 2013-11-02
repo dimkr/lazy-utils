@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <fnmatch.h>
 #include <string.h>
+#include <errno.h>
 #include <liblazy/cache.h>
 #include <liblazy/kmodule.h>
 
@@ -103,8 +104,11 @@ bool _cache_blacklist(const int fd) {
 
 	/* open the blacklist */
 	blacklist = fopen(KERNEL_MODULE_BLACKLIST_PATH, "r");
-	if (NULL == blacklist)
+	if (NULL == blacklist) {
+		if (ENOENT == errno)
+			is_success = true;
 		goto end;
+	}
 
 	do {
 		/* read the name of one blacklisted module */
