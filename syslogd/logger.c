@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
 	openlog(LOG_IDENTITY, LOG_NDELAY, LOG_USER);
 
 	/* write the message to the system log */
-	syslog(LOG_INFO, "%s", argv[1]);
+	syslog(LOG_INFO, "%s\n", argv[1]);
 
 	/* close the system log */
 	closelog();
