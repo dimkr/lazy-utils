@@ -25,7 +25,8 @@ int main(int argc, char *argv[]) {
 	char *term;
 	char shell_environment_term[MAX_ENVIRONMENT_VARIABLE_SIZE];
 	char shell_environment_user[MAX_ENVIRONMENT_VARIABLE_SIZE];
-	char *shell_environment[4];
+	char shell_environment_shell[MAX_ENVIRONMENT_VARIABLE_SIZE];
+	char *shell_environment[5];
 
 	/* parse the command-line */
 	switch (argc) {
@@ -78,6 +79,14 @@ int main(int argc, char *argv[]) {
 	                                           greeter.user_details.pw_name))
 		goto close_greeter;
 
+	/* same, with SHELL */
+	if (sizeof(shell_environment_shell) <= snprintf(
+	                                          (char *) &shell_environment_shell,
+	                                          sizeof(shell_environment_shell),
+	                                          "SHELL=%s",
+	                                          greeter.user_details.pw_shell))
+		goto close_greeter;
+
 	/* copy the shell path from the reading buffer to a statically-allocated
 	 * buffer */
 	(void) strcpy((char *) &shell, greeter.user_details.pw_shell);
@@ -101,7 +110,8 @@ int main(int argc, char *argv[]) {
 	shell_environment[0] = (char *) &shell_environment_term;
 	shell_environment[1] = (char *) &shell_environment_home;
 	shell_environment[2] = (char *) &shell_environment_user;
-	shell_environment[3] = NULL;
+	shell_environment[3] = (char *) &shell_environment_shell;
+	shell_environment[4] = NULL;
 	(void) execve(shell_argv[0],
 	              (char **) &shell_argv,
 	              (char **) &shell_environment);
