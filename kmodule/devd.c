@@ -18,7 +18,7 @@
 #include <limits.h>
 #include <linux/netlink.h>
 #include <liblazy/io.h>
-#include <liblazy/kmodule.h>
+#include <liblazy/common.h>
 #include <liblazy/daemon.h>
 
 /* the sysfs mount point */
@@ -36,9 +36,36 @@
 /* the buffer size for received messages */
 #define BUFFER_SIZE (FILE_READING_BUFFER_SIZE)
 
+bool _load_module(const char *alias) {
+	/* the return value */
+	bool is_success = false;
+
+	/* the process ID */
+	pid_t pid;
+
+	/* create a child process */
+	pid = fork();
+
+	switch (pid) {
+		case (-1):
+			goto end;
+
+		case 0:
+			/* run modprobe */
+			(void) execlp("modprobe", "modprobe", alias, (char *) NULL);
+			exit(EXIT_FAILURE);
+	}
+
+	/* report success */
+	is_success = true;
+
+end:
+	return is_success;
+}
+
 bool _handle_existing_device(const char *path,
                              const char *name,
-                             kmodule_loader_t *loader,
+                             void *unused,
                              struct dirent *entry) {
 	/* the return value */
 	bool should_stop = true;
@@ -79,7 +106,7 @@ bool _handle_existing_device(const char *path,
 	module_alias[module_alias_length - sizeof(char)] = '\0';
 
 	/* try to load the matching kernel module */
-	(void) kmodule_load_by_alias(loader, (char *) &module_alias, "", true);
+	(void) _load_module((char *) &module_alias);
 
 	/* continue to the next device */
 	should_stop = false;
@@ -92,16 +119,14 @@ end:
 	return should_stop;
 }
 
-bool _handle_existing_devices(kmodule_loader_t *loader) {
+bool _handle_existing_devices() {
 	return file_for_each(SYSFS_MOUNT_POINT,
 	                     MODULE_ALIAS_FILE_NAME,
-	                     loader,
+	                     NULL,
 	                     (file_callback_t) _handle_existing_device);
 }
 
-bool _handle_new_device(kmodule_loader_t *loader,
-                        unsigned char *message,
-                        size_t len) {
+bool _handle_new_device(unsigned char *message, size_t len) {
 	/* the return value */
 	bool is_success = true;
 
@@ -152,7 +177,7 @@ bool _handle_new_device(kmodule_loader_t *loader,
 
 	/* if a device was added, load its kernel module */
 	if (0 == strcmp("add", action)) {
-		if (false == kmodule_load_by_alias(loader, module_alias, "", true))
+		if (false == _load_module(module_alias))
 			goto end;
 	}
 
@@ -185,37 +210,43 @@ int main(int argc, char *argv[]) {
 	/* the received message size */
 	ssize_t message_size;
 
-	/* a kernel module loader */
-	kmodule_loader_t loader;
-
 	/* the signal which indicates there is data to log */
 	int io_signal;
+
+	/* a signal action */
+	struct sigaction signal_action;
 
 	/* make sure the number of command-line arguments is valid */
 	if (1 != argc)
 		goto end;
 
+	/* assign a signal handler for SIGCHLD, which destroys zombie processes */
+	signal_action.sa_flags = SA_NOCLDWAIT;
+	signal_action.sa_handler = SIG_DFL;
+	if (-1 == sigemptyset(&signal_action.sa_mask))
+		goto end;
+	if (-1 == sigaction(SIGCHLD, &signal_action, NULL))
+		goto end;
+
 	/* pick the minimum real-time signal */
 	io_signal = SIGRTMIN;
 
-	/* block io_signal and SIGTERM signals */
+	/* block io_signal, SIGCHLD and SIGTERM signals */
 	if (-1 == sigemptyset(&signal_mask))
 		goto end;
 	if (-1 == sigaddset(&signal_mask, io_signal))
+		goto end;
+	if (-1 == sigaddset(&signal_mask, SIGCHLD))
 		goto end;
 	if (-1 == sigaddset(&signal_mask, SIGTERM))
 		goto end;
 	if (-1 == sigprocmask(SIG_SETMASK, &signal_mask, NULL))
 		goto end;
 
-	/* initialize the kernel module loader */
-	if (false == kmodule_loader_init(&loader))
-		goto end;
-
 	/* create a netlink socket */
 	ipc_socket = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
 	if (-1 == ipc_socket)
-		goto destroy_loader;
+		goto end;
 
 	/* bind the socket */
 	address.nl_family = AF_NETLINK;
@@ -231,18 +262,31 @@ int main(int argc, char *argv[]) {
 	/* open the system log */
 	openlog(LOG_IDENTITY, LOG_NDELAY, LOG_USER);
 
-	/* load kernel modules for existing devices */
-	syslog(LOG_INFO, "devd has started");
-	if (true == _handle_existing_devices(&loader))
-		goto close_system_log;
-
 	/* enable asynchronous I/O */
 	if (false == file_enable_async_io(ipc_socket, io_signal))
+		goto close_system_log;
+
+	/* load kernel modules for existing devices */
+	syslog(LOG_INFO, "devd has started");
+	if (true == _handle_existing_devices())
 		goto close_system_log;
 
 	syslog(LOG_INFO, "waiting for uevents");
 
 	do {
+		/* wait until a signal is received */
+		if (0 != sigwait(&signal_mask, &received_signal))
+			goto close_system_log;
+
+		switch (received_signal) {
+			/* if the received signal is a termination one, stop */
+			case SIGTERM:
+				goto success;
+
+			case SIGCHLD:
+				continue;
+		}
+
 		/* receive a message */
 		message_size = recv(ipc_socket,
 		                    (unsigned char *) &buffer,
@@ -262,22 +306,14 @@ int main(int argc, char *argv[]) {
 				buffer[message_size] = '\0';
 
 				/* handle the received message */
-				(void) _handle_new_device(&loader,
-				                          (unsigned char *) &buffer,
+				(void) _handle_new_device((unsigned char *) &buffer,
 				                          (size_t) message_size);
 
 				break;
 		}
-
-		/* wait until a signal is received */
-		if (0 != sigwait(&signal_mask, &received_signal))
-			goto close_system_log;
-
-		/* if the received signal is a termination one, stop */
-		if (SIGTERM == received_signal)
-			break;
 	} while (1);
 
+success:
 	/* report success */
 	exit_code = EXIT_SUCCESS;
 
@@ -291,10 +327,6 @@ close_system_log:
 close_socket:
 	/* close the netlink socket */
 	(void) close(ipc_socket);
-
-destroy_loader:
-	/* destroy the kernel module loader */
-	kmodule_loader_destroy(&loader);
 
 end:
 	return exit_code;
