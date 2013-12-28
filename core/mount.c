@@ -13,6 +13,7 @@
 #include <linux/loop.h>
 #include <errno.h>
 #include <liblazy/io.h>
+#include <liblazy/fs.h>
 
 /* the number of available loop devices; should be equal to
  * CONFIG_BLK_DEV_LOOP_MIN_COUNT */
@@ -135,14 +136,10 @@ bool _parse_options(const char *type,
 	if ((MS_BIND == (*flags & MS_BIND)) && (MS_MOVE == (*flags & MS_MOVE)))
 		goto end;
 
+	/* make sure no file system type was specified for bind mounts or mount
+	 * point moving, since this makes no sense */
 	if ((MS_BIND == (*flags & MS_BIND)) || (MS_MOVE == (*flags & MS_MOVE))) {
-		/* make sure no file system type was specified for bind mounts or mount
-		 * point moving, since this makes no sense */
 		if (NULL != type)
-			goto end;
-	} else {
-		/* otherwise, make sure a file system type was specified */
-		if (NULL == type)
 			goto end;
 	}
 
@@ -234,7 +231,7 @@ int main(int argc, char *argv[]) {
 	void *data = NULL;
 
 	/* the file system type */
-	char *type = NULL;
+	const char *type = NULL;
 
 	/* the mount point flags */
 	int flags = 0;
@@ -306,6 +303,13 @@ int main(int argc, char *argv[]) {
 		                         loop_mode))
 			goto free_data;
 		source = (char *) &loop_device;
+	}
+
+	/* if no file system type was specified, try to guess */
+	if (NULL == type) {
+		type = fs_guess(source);
+		if (NULL == type)
+			goto end;
 	}
 
 	/* mount the specified file system */
