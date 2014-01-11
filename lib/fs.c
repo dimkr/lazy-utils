@@ -52,3 +52,73 @@ close_device:
 end:
 	return file_system;
 }
+
+bool fs_mount(const char *source,
+              const char *target,
+              const char *type,
+              const int flags,
+              void *data) {
+	/* the return value */
+	bool is_success = false;
+
+	/* if no file system type was specified, try to detect it */
+	if (NULL == type) {
+		type = fs_guess(source);
+		if (NULL == type)
+			goto end;
+	}
+
+	/* mount the file system */
+	if (-1 == mount(source, target, type, flags, data))
+		goto end;
+
+	/* report success */
+	is_success = true;
+
+end:
+	return is_success;
+}
+
+bool fs_mount_brute(const char *source,
+                    const char *target,
+                    const int flags,
+                    void *data) {
+	/* the return value */
+	bool is_success = false;
+
+	/* a file system entry */
+	char type[1 + MAX_SUPPORTED_FILE_SYSTEM_ENTRY_LENGTH];
+
+	/* the list of supported file systems */
+	FILE *file_systems;
+
+	/* open the list of supported file systems */
+	file_systems = fopen(SUPPORTED_FILE_SYSTEMS_LIST, "r");
+	if (NULL == file_systems)
+		goto end;
+
+	do {
+		/* read one supported file system */
+		if (NULL == fgets((char *) &type, STRLEN(type), file_systems))
+			break;
+
+		/* if the file system does not require a device, skip it */
+		if ('\t' != type[0])
+			continue;
+
+		/* strip the trailing line break */
+		type[strlen(type) - 1] = '\0';
+
+		/* mount the file system */
+		if (0 == mount(source, target, (char *) &type[1], flags, data)) {
+			is_success = true;
+			break;
+		}
+	} while(1);
+
+	/* close the supported file systems list */
+	(void) fclose(file_systems);
+
+end:
+	return is_success;
+}

@@ -1,9 +1,11 @@
 #ifndef _FS_H_INCLUDED
 #	define _FS_H_INCLUDED
 
+#	include <stdbool.h>
 #	include <stdint.h>
 #	include <sys/types.h>
 #	include <linux/magic.h>
+#	include <sys/mount.h>
 #	include <liblazy/common.h>
 
 typedef struct {
@@ -12,6 +14,9 @@ typedef struct {
 	size_t size;
 	off_t offset;
 } _fs_magic_t;
+
+#	define SUPPORTED_FILE_SYSTEMS_LIST "/proc/filesystems"
+#	define MAX_SUPPORTED_FILE_SYSTEM_ENTRY_LENGTH STRLEN("nodev\tanon_inodefs")
 
 static const _fs_magic_t g_file_systems[] = {
 	{
@@ -36,5 +41,16 @@ static const _fs_magic_t g_file_systems[] = {
 };
 
 const char *fs_guess(const char *path);
+
+bool fs_mount(const char *source,
+              const char *target,
+              const char *type,
+              const int flags,
+              void *data);
+
+bool fs_mount_brute(const char *source,
+                    const char *target,
+                    const int flags,
+                    void *data);
 
 #endif

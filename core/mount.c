@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/mount.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -305,16 +304,11 @@ int main(int argc, char *argv[]) {
 		source = (char *) &loop_device;
 	}
 
-	/* if no file system type was specified, try to guess */
-	if (NULL == type) {
-		type = fs_guess(source);
-		if (NULL == type)
-			goto end;
-	}
-
 	/* mount the specified file system */
-	if (-1 == mount(source, argv[1 + optind], type, flags, data))
-		goto free_data;
+	if (false == fs_mount_brute(source, argv[1 + optind], flags, data)) {
+		if (false == fs_mount(source, argv[1 + optind], type, flags, data))
+			goto free_data;
+	}
 
 	/* report success */
 	exit_code = EXIT_SUCCESS;
