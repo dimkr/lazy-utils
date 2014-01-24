@@ -11,13 +11,18 @@ int main(int argc, char *argv[]) {
 	/* the link target */
 	char path[PATH_MAX];
 
+	/* the path length */
+	ssize_t length;
+
 	/* make sure the number of command-line arguments is valid */
 	if (2 != argc)
 		goto end;
 
 	/* obtain the link target */
-	if (-1 == readlink(argv[1], (char *) &path, STRLEN(path)))
+	length = readlink(argv[1], (char *) &path, STRLEN(path));
+	if (-1 == length)
 		goto end;
+	path[length] = '\0';
 
 	/* print the link target */
 	if (0 > printf("%s\n", (char *) &path))
