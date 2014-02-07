@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
 		goto close_log_file;
 
 	/* open the system log */
-	openlog(LOG_IDENTITY, LOG_NDELAY | LOG_PID, LOG_KERN);
+	openlog(LOG_IDENTITY, LOG_NDELAY | LOG_PID, LOG_SYSLOG);
 
 	/* write a log message which indicates when the daemon started running */
 	syslog(LOG_INFO, "logd has started");

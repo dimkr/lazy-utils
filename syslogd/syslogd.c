@@ -12,13 +12,7 @@
 /* the IPC socket path */
 #define IPC_SOCKET_PATH "/dev/log"
 
-/* the log file path */
-#define LOG_FILE_PATH "/var/log/messages"
-
-/* the pipe path */
-#define PIPE_PATH "/run/messages"
-
-int main() {
+int main(int argc, char *argv[]) {
 	/* the exit code */
 	int exit_code = EXIT_FAILURE;
 
@@ -31,19 +25,13 @@ int main() {
 	/* a named pipe */
 	int fifo;
 
-	/* the log file */
-	int log_file;
-
-	/* create a named pipe */
-	if (-1 == mkfifo(PIPE_PATH, S_IWUSR | S_IRUSR))
+	/* make sure the number of command-line arguments is valid */
+	if (2 != argc)
 		goto end;
 
-	/* open the log file */
-	log_file = open(LOG_FILE_PATH,
-	                O_CREAT | O_APPEND | O_WRONLY,
-	                S_IWUSR | S_IRUSR);
-	if (-1 == log_file)
-		goto delete_pipe;
+	/* create a named pipe */
+	if (-1 == mkfifo(argv[1], S_IWUSR | S_IRUSR))
+		goto end;
 
 	/* create the IPC socket; if it exists already, do nothing, since this
 	 * indicates the daemon is already running or a previous one terminated
@@ -52,7 +40,7 @@ int main() {
 	(void) strcpy(ipc_socket_address.sun_path, IPC_SOCKET_PATH);
 	ipc_socket = socket(AF_UNIX, SOCK_DGRAM, 0);
 	if (-1 == ipc_socket)
-		goto close_log_file;
+		goto delete_pipe;
 
 	/* bind the socket */
 	if (-1 == bind(ipc_socket,
@@ -65,7 +53,7 @@ int main() {
 		goto close_socket;
 
 	/* open the pipe for writing */
-	fifo = open(PIPE_PATH, O_WRONLY);
+	fifo = open(argv[1], O_WRONLY);
 	if (-1 == fifo)
 		goto close_socket;
 
@@ -85,13 +73,9 @@ close_socket:
 	if (0 == close(ipc_socket))
 		(void) unlink(IPC_SOCKET_PATH);
 
-close_log_file:
-	/* close the log file */
-	(void) close(log_file);
-
 delete_pipe:
 	/* delete the pipe */
-	(void) unlink(PIPE_PATH);
+	(void) unlink(argv[1]);
 
 end:
 	return exit_code;

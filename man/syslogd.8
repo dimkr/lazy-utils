@@ -3,13 +3,9 @@
 .B syslogd
 \- manages the system log
 .SH SYNOPSIS
-.B syslogd
+.B syslogd PATH
 .SH DESCRIPTION
-Manages the system log.
-.SH FILES
-.TP
-.B /run/messages
-A named pipe the system log messages are written to
+Writes system log messages to a given file.
 .SH SIGNALS
 .TP
 .B SIGTERM
