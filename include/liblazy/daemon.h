@@ -3,7 +3,7 @@
 
 #	include <stdbool.h>
 
-#	define PROCESS_WORKING_DIRETORY "/tmp"
+#	define PROCESS_WORKING_DIRETORY "/run"
 
 bool daemonize();
 
