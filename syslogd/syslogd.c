@@ -6,7 +6,6 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
-#include <sys/klog.h>
 #include <liblazy/io.h>
 #include <liblazy/daemon.h>
 
@@ -35,17 +34,9 @@ int main() {
 	/* the log file */
 	int log_file;
 
-	/* open the kernel log */
-	if (-1 == klogctl(1, NULL, 0))
-		goto end;
-
-	/* disable writing of kernel log messages to the console */
-	if (-1 == klogctl(6, NULL, 0))
-		goto close_kernel_log;
-
 	/* create a named pipe */
 	if (-1 == mkfifo(PIPE_PATH, S_IWUSR | S_IRUSR))
-		goto restore_kernel_output;
+		goto end;
 
 	/* open the log file */
 	log_file = open(LOG_FILE_PATH,
@@ -101,14 +92,6 @@ close_log_file:
 delete_pipe:
 	/* delete the pipe */
 	(void) unlink(PIPE_PATH);
-
-restore_kernel_output:
-	/* re-enable writing of kernel log messages to the console */
-	(void) klogctl(7, NULL, 0);
-
-close_kernel_log:
-	/* close the kernel log */
-	(void) klogctl(0, NULL, 0);
 
 end:
 	return exit_code;
