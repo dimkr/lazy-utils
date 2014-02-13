@@ -3,7 +3,7 @@
 #include <liblazy/common.h>
 
 /* the VT100 escape sequence used to clear the screen */
-#define ESCAPE_SEQUENCE "\033[2J"
+#define ESCAPE_SEQUENCE "\033[2J\033[H"
 
 int main(int argc, char *argv[]) {
 	/* the exit code */
