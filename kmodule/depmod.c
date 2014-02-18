@@ -9,6 +9,7 @@
 #include <fnmatch.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/utsname.h>
 #include <liblazy/cache.h>
 #include <liblazy/kmodule.h>
 
@@ -152,8 +153,18 @@ int main(int argc, char *argv[]) {
 	/* the cache file */
 	int cache_file;
 
+	/* the kernel module directory */
+	char module_directory[PATH_MAX];
+
+	/* the operating system details */
+	struct utsname system_details;
+
 	/* make sure the number of command-line arguments is valid */
 	if (1 != argc)
+		goto end;
+
+	/* obtain the operating system details */
+	if (-1 == uname(&system_details))
 		goto end;
 
 	/* open the cache file */
@@ -164,7 +175,12 @@ int main(int argc, char *argv[]) {
 		goto end;
 
 	/* list all kernel modules */
-	if (true == file_for_each(KERNEL_MODULE_DIRECTORY,
+	(void) snprintf((char *) &module_directory,
+	                sizeof(module_directory),
+	                "%s/%s",
+	                KERNEL_MODULE_DIRECTORY,
+	                (char *) &system_details.release);
+	if (true == file_for_each((char *) &module_directory,
 	                          "*."KERNEL_MODULE_FILE_NAME_EXTENSION,
 	                          (void *) (intptr_t) cache_file,
 	                          (file_callback_t) _cache_module))
