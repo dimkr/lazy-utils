@@ -12,6 +12,8 @@
 #include <syslog.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <time.h>
+#include <limits.h>
 #include <liblazy/io.h>
 
 /* the relaying timeout, in seconds */
@@ -36,6 +38,9 @@
 /* the sleep interval between the termination of a session and the process
  * termination */
 #define CLIENT_DROP_SLEEP_INTERVAL (5)
+
+/* the maximum size of the random buffer sent to dropped clients */
+#define MAX_RANDOM_BUFFER_SIZE (512)
 
 /* a blacklist expression */
 typedef struct {
@@ -113,6 +118,15 @@ bool _should_drop_session(const peer_t *source,
 	/* the peer address, in textual form */
 	char peer_address[INET6_ADDRSTRLEN];
 
+	/* a random number generation seed */
+	unsigned int seed;
+
+	/* random data */
+	unsigned char random_data[MAX_RANDOM_BUFFER_SIZE];
+
+	/* the random data size */
+	int size;
+
 	/* get the peer address */
 	_get_peer_address(source, (char *) &peer_address, sizeof(peer_address));
 
@@ -162,6 +176,19 @@ bool _should_drop_session(const peer_t *source,
 	goto end;
 
 drop:
+	/* generate a random buffer containing non-ASCII characters */
+	seed = (unsigned int) time(NULL);
+	size = 1 + (rand_r(&seed) % MAX_RANDOM_BUFFER_SIZE);
+	for (i = 0; (int) size > i; ++i)
+		random_data[i] = SCHAR_MAX + (rand_r(&seed) % SCHAR_MAX);
+
+	/* send the buffer to the client */
+	if ((ssize_t) size != send(source->input,
+	                           &random_data,
+	                           (size_t) size,
+	                           0))
+		goto end;
+
 	/* shut down one side of the session, to cause the peer's send() to fail */
 	if (0 == shutdown(source->input, SHUT_RD))
 		(void) sleep(CLIENT_DROP_SLEEP_INTERVAL);
