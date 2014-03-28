@@ -15,8 +15,8 @@
 /* the maximum number of clients */
 #define CLIENTS_LIMIT (32)
 
-/* the client handler */
-#define CLIENT_HANDLER "client"
+/* the default client handler */
+#define DEFAULT_CLIENT_HANDLER "client"
 
 /* the application name in the system log */
 #define LOG_IDENTITY "relayd"
@@ -64,9 +64,22 @@ int main(int argc, char *argv[]) {
 	/* a signal action */
 	struct sigaction signal_action;
 
-	/* make sure the number of command-line arguments is valid */
-	if (4 != argc)
-		goto end;
+	/* the handler */
+	const char *handler;
+
+	/* parse the command-line */
+	switch (argc) {
+		case 4:
+			handler = DEFAULT_CLIENT_HANDLER;
+			break;
+
+		case 5:
+			handler = argv[4];
+			break;
+
+		default:
+			goto end;
+	}
 
 	/* assign a signal handler for SIGCHLD, which destroys zombie processes */
 	signal_action.sa_flags = SA_SIGINFO | SA_NOCLDWAIT | SA_NOCLDSTOP | SA_NODEFER;
@@ -209,8 +222,8 @@ int main(int argc, char *argv[]) {
 					goto terminate_child;
 
 				/* serve the client, by relaying its traffic */
-				(void) execlp(CLIENT_HANDLER,
-				              CLIENT_HANDLER,
+				(void) execlp(handler,
+				              handler,
 				              argv[2],
 				              argv[3],
 				              (char *) NULL);

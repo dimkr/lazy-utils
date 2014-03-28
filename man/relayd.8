@@ -4,9 +4,13 @@
 \- relays TCP sessions to a server
 .SH SYNOPSIS
 .B relayd
-LOCAL_PORT SERVER REMOTE_PORT
+LOCAL_PORT SERVER REMOTE_PORT [HANDLER]
 .SH DESCRIPTION
-Listens on a given port and redirects all incoming traffic to a given server.
+Listens on a given port and redirects all incoming traffic to a given server, through an external handler program.
+
+If no handler program is specified, relayd falls back to
+.B
+client(1).
 .SH SIGNALS
 .TP
 .B SIGTERM
