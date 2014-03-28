@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
 	/* otherwise, check whether the first argument is "-n" */
 	if (0 == strcmp("-n", argv[1])) {
 		line_break = false;
-		if (1 == argc)
+		if (2 == argc)
 			goto end;
 		i = 2;
 	} else {
