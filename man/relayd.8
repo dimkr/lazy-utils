@@ -1,12 +1,12 @@
 .TH relayd 8
 .SH NAME
 .B relayd
-\- relays TCP sessions to a server
+\- a TCP server
 .SH SYNOPSIS
 .B relayd
-LOCAL_PORT SERVER REMOTE_PORT [HANDLER]
+LOCAL_PORT ARG1 ARG2 [HANDLER]
 .SH DESCRIPTION
-Listens on a given port and redirects all incoming traffic to a given server, through an external handler program.
+Listens on a given port and runs an external handler program (which accepts two arguments) for each incoming client.
 
 If no handler program is specified, relayd falls back to
 .B
@@ -16,6 +16,6 @@ client(1).
 .B SIGTERM
 Stops the process
 .SH "SEE ALSO"
-.B client(1)
+.B client(1), echo(1)
 .SH AUTHOR
 Dima Krasner (dima@dimakrasner.com)
