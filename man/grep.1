@@ -4,9 +4,12 @@
 \- filters text
 .SH SYNOPSIS
 .B grep
-EXPRESSION
+[-v] EXPRESSION
 .SH DESCRIPTION
 Accepts text as input and prints all lines which match a given regular
 expression.
+.TP
+.B -v
+Instead of printing matching lines, print those that don't.
 .SH AUTHOR
 Dima Krasner (dima@dimakrasner.com)
