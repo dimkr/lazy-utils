@@ -9,6 +9,7 @@
 #include <syslog.h>
 #include <dirent.h>
 #include <liblazy/common.h>
+#include <liblazy/mime.h>
 #include <liblazy/http.h>
 
 /* the server name */
@@ -124,7 +125,8 @@ end:
 
 http_response_type_t _open_file(const http_request_t *request,
                                 off_t *size,
-                                int *fd) {
+                                int *fd,
+                                const char **mime_type) {
 	/* the return value */
 	http_response_type_t result = HTTP_RESPONSE_INTERNAL_ERROR;
 
@@ -198,8 +200,9 @@ close_root:
 		goto end;
 	}
 
-	/* return the file size */
+	/* return the file size and type */
 	*size = attributes.st_size;
+	*mime_type = mime_type_guess(path);
 
 	/* report success */
 	result = HTTP_RESPONSE_OK;
@@ -209,7 +212,8 @@ end:
 }
 
 http_response_type_t _add_common_headers(http_response_t *response,
-                                         char *now_textual) {
+                                         char *now_textual,
+                                         const char *mime_type) {
 	/* the return value */
 	http_response_type_t result = HTTP_RESPONSE_INTERNAL_ERROR;
 
@@ -237,6 +241,11 @@ http_response_type_t _add_common_headers(http_response_t *response,
 	                             &response->headers_count,
 	                             "Server",
 	                             SERVER_BANNER))
+		goto end;
+	if (false == http_header_add(&response->headers,
+	                             &response->headers_count,
+	                             "Content-Type",
+	                             mime_type))
 		goto end;
 	if (false == http_header_add(&response->headers,
 	                             &response->headers_count,
@@ -304,6 +313,9 @@ int main(int argc, char *argv[]) {
 	/* the file size */
 	off_t content_size;
 
+	/* the file type */
+	const char *mime_type;
+
 	/* the file  size, in textual form */
 	char content_size_textual[STRLEN("18446744073709551615")];
 
@@ -339,7 +351,7 @@ int main(int argc, char *argv[]) {
 		goto send_response;
 
 	/* open the sent file */
-	response.type = _open_file(&request, &content_size, &fd);
+	response.type = _open_file(&request, &content_size, &fd, &mime_type);
 	if (HTTP_RESPONSE_OK != response.type)
 		goto send_response;
 
@@ -361,7 +373,9 @@ int main(int argc, char *argv[]) {
 
 send_response:
 	/* add all common headers */
-	if (HTTP_RESPONSE_OK != _add_common_headers(&response, (char *) &now)) {
+	if (HTTP_RESPONSE_OK != _add_common_headers(&response,
+	                                            (char *) &now,
+	                                            mime_type)) {
 		response.type = HTTP_RESPONSE_INTERNAL_ERROR;
 		goto close_file;
 	}
