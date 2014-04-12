@@ -7,10 +7,12 @@
 
 #	define HTTP_MAX_REQUEST_SIZE (2048)
 
-typedef enum {
+enum http_request_types {
 	HTTP_REQUEST_TYPE_GET,
 	HTTP_REQUEST_TYPE_POST
-} http_request_type_t;
+} ;
+
+typedef unsigned int http_request_type_t;
 
 typedef enum {
 	HTTP_RESPONSE_OK,
@@ -30,7 +32,6 @@ typedef struct {
 typedef struct {
 	const char *text;
 	unsigned int length;
-	http_request_type_t type;
 } http_request_identifier_t;
 
 typedef struct {
@@ -66,5 +67,9 @@ bool http_response_send(FILE *stream,
                         http_response_t *response,
                         const int fd,
                         const size_t size);
+
+void http_request_log(const char *identity,
+                      const http_request_t *request,
+                      const http_response_t *response);
 
 #endif

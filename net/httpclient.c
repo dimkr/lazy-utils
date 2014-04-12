@@ -6,14 +6,22 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
+#include <syslog.h>
 #include <liblazy/common.h>
 #include <liblazy/http.h>
 
+/* the server name */
+#define SERVER_NAME "httpclient"
+
 /* the server banner */
-#define SERVER_BANNER "httpclient/1.0"
+#define SERVER_BANNER SERVER_NAME"/1.0"
 
 /* the index page */
 #define INDEX_PAGE "/index.html"
+
+extern const http_request_identifier_t g_request_types[];
+
+extern const http_response_identifier_t g_response_types[];
 
 int main(int argc, char *argv[]) {
 	/* the exit code */
@@ -51,6 +59,9 @@ int main(int argc, char *argv[]) {
 	
 	/* the content size, in textual form */
 	char content_size[STRLEN("18446744073709551615")];
+
+	/* the client user agent */
+	const char *user_agent;
 
 	/* initialize the response headers */
 	response.headers = NULL;
@@ -97,10 +108,13 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	/* open the system log */
+	openlog(SERVER_NAME, LOG_NDELAY | LOG_PID, LOG_USER);
+
 	/* change the server root directory */
 	if (-1 == chroot(argv[1])) {
 		response.type = HTTP_RESPONSE_FORBIDDEN;
-		goto end;
+		goto send_response;
 	}
 
 	/* if no file was requested, return the index page */
@@ -170,19 +184,39 @@ send_response:
 	                             "Connection",
 	                             "close"))
 		goto close_file;
-		
-	/* send the response */
-	if (false == http_response_send(stdout, &response, fd, attributes.st_size))
-		goto close_file;
 
-	/* report success */
-	exit_code = EXIT_SUCCESS;
+	/* send the response */
+	if (true == http_response_send(stdout, &response, fd, attributes.st_size))
+		exit_code = EXIT_SUCCESS;
+
+	/* get the client name and version */
+	user_agent = http_request_get_header(&request, "User-Agent");
+	if (NULL == user_agent)
+		user_agent = "unknown";
+
+	/* log the request to the system log */
+	syslog(LOG_INFO,
+	       "%s%s (%s) -> %s",
+	       g_request_types[request.type].text,
+	       request.url,
+	       user_agent,
+	       g_response_types[request.type].text);
 
 close_file:
 	/* close the file */
 	if (-1 != fd)
 		(void) close(fd);
-		
+
+	/* close the system log */
+	closelog();
+
+	/* free the response headers */
+	if (NULL != response.headers)
+		free(response.headers);
+
+	/* free the request headers */
+	free(request.headers);
+
 end:
 	return exit_code;
 }

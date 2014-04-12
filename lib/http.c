@@ -11,12 +11,12 @@
 #include <liblazy/common.h>
 #include <liblazy/http.h>
 
-static const http_request_identifier_t g_request_types[] = {
-	{ "GET ", STRLEN("GET "), HTTP_REQUEST_TYPE_GET },
-	{ "POST ", STRLEN("POST "), HTTP_REQUEST_TYPE_POST }
+const http_request_identifier_t g_request_types[] = {
+	{ "GET ", STRLEN("GET ") },
+	{ "POST ", STRLEN("POST ") }
 };
 
-static const http_response_identifier_t g_response_types[] = {
+const http_response_identifier_t g_response_types[] = {
 	{ 200, "200 OK" },
 	{ 400, "400 Bad Request" },
 	{ 403, "403 Forbidden" },
@@ -69,8 +69,8 @@ http_response_type_t http_headers_parse(http_request_t *request,
 	/* a header value */
 	char *value;
 
-	/* a loop index */
-	unsigned int i;
+	/* a request type */
+	http_request_type_t i;
 
 	/* locate the URL, according to the request type */
 	for (i = 0; ARRAY_SIZE(g_request_types) > i; ++i) {
@@ -79,7 +79,7 @@ http_response_type_t http_headers_parse(http_request_t *request,
 		                 g_request_types[i].length)) {
 			request->url = (const char *) raw_request;
 			request->url += g_request_types[i].length;
-			request->type = g_request_types[i].type;
+			request->type = i;
 			goto parse_headers;
 		}
 	}
