@@ -12,6 +12,9 @@
 /* the server banner */
 #define SERVER_BANNER "httpclient/1.0"
 
+/* the index page */
+#define INDEX_PAGE "/index.html"
+
 int main(int argc, char *argv[]) {
 	/* the exit code */
 	int exit_code = EXIT_FAILURE;
@@ -99,9 +102,19 @@ int main(int argc, char *argv[]) {
 		response.type = HTTP_RESPONSE_FORBIDDEN;
 		goto end;
 	}
- 
+
+	/* if no file was requested, return the index page */
+	if (0 == strcmp("/", request.url))
+		request.url = INDEX_PAGE;
+
 	/* get the file attributes */
 	if (-1 == stat(request.url, &attributes)) {
+		response.type = HTTP_RESPONSE_NOT_FOUND;
+		goto send_response;
+	}
+
+	/* make sure the file is a regular file */
+	if (!(S_ISREG(attributes.st_mode))) {
 		response.type = HTTP_RESPONSE_NOT_FOUND;
 		goto send_response;
 	}
@@ -109,8 +122,8 @@ int main(int argc, char *argv[]) {
 	/* convert the file size to textual form */
 	if (sizeof(content_size) <= snprintf((char *) &content_size,
 	                                     sizeof(content_size),
-	                                     "%zu",
-	                                     attributes.st_size)) {
+	                                     "%u",
+	                                     (unsigned int) attributes.st_size)) {
 		response.type = HTTP_RESPONSE_INTERNAL_ERROR;
 		goto send_response;
 	}
