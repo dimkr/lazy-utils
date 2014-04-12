@@ -68,12 +68,10 @@ end:
 
 http_response_type_t _enter_root(const char *root,
                                  const http_request_t *request,
-                                 const char *default_host) {
+                                 const char *default_host,
+                                 const char **host) {
 	/* the return value */
 	http_response_type_t result = HTTP_RESPONSE_REQUEST_TOO_LARGE;
-
-	/* the host */
-	const char *host;
 
 	/* the host root */
 	char host_root[PATH_MAX];
@@ -82,16 +80,16 @@ http_response_type_t _enter_root(const char *root,
 	char absolute_root[PATH_MAX];
 
 	/* get the requested host */
-	host = http_request_get_header(request, "Host");
-	if (NULL == host)
-		host = default_host;
+	*host = http_request_get_header(request, "Host");
+	if (NULL == *host)
+		*host = default_host;
 
 	/* obtain the host root directory */
 	if (sizeof(host_root) <= snprintf((char *) &host_root,
 	                                  sizeof(host_root),
 	                                  "%s/%s",
 	                                  root,
-	                                  host))
+	                                  *host))
 		goto end;
 
 	/* get host root directory's absolute path */
@@ -253,7 +251,9 @@ end:
 	return result;
 }
 
-void _log_request(http_request_t *request, http_response_t *response) {
+void _log_request(http_request_t *request,
+                  http_response_t *response,
+                  const char *host) {
 	/* the client user agent */
 	const char *user_agent;
 
@@ -272,8 +272,9 @@ void _log_request(http_request_t *request, http_response_t *response) {
 
 	/* log the request to the system log */
 	syslog(LOG_INFO,
-	       "%s%s [%s] (%s) -> %s",
+	       "%s%s%s [%s] (%s) -> %s",
 	       g_http_request_types[request->type].text,
+	       host,
 	       request->url,
 	       referer,
 	       user_agent,
@@ -293,6 +294,9 @@ int main(int argc, char *argv[]) {
 
 	/* the response */
 	http_response_t response;
+
+	/* the host */
+	const char *host;
 
 	/* the sent file */
 	int fd = -1;
@@ -317,6 +321,9 @@ int main(int argc, char *argv[]) {
 	response.headers = NULL;
 	response.headers_count = 0;
 
+	/* initialize the host */
+	host = "";
+
 	/* receive the request */
 	request.headers = NULL;
 	request.headers_count = 0;
@@ -327,7 +334,7 @@ int main(int argc, char *argv[]) {
 		goto log_request;
 
 	/* change the server root directory */
-	response.type = _enter_root(argv[1], &request, argv[2]);
+	response.type = _enter_root(argv[1], &request, argv[2], &host);
 	if (HTTP_RESPONSE_OK != response.type)
 		goto send_response;
 
@@ -369,8 +376,9 @@ close_file:
 		(void) close(fd);
 
 log_request:
-	/* log the request */
-	_log_request(&request, &response);
+	/* if the headers were successfully parsed, log the request */
+	if (0 < request.headers_count)
+		_log_request(&request, &response, host);
 
 	/* free the response headers */
 	if (NULL != response.headers)
