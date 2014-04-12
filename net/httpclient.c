@@ -112,6 +112,10 @@ http_response_type_t _enter_root(const char *root,
 		result = HTTP_RESPONSE_INTERNAL_ERROR;
 		goto end;
 	}
+	if (-1 == chdir("/")) {
+		result = HTTP_RESPONSE_INTERNAL_ERROR;
+		goto end;
+	}
 
 	/* report success */
 	result = HTTP_RESPONSE_OK;
