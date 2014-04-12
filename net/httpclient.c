@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <syslog.h>
+#include <dirent.h>
 #include <liblazy/common.h>
 #include <liblazy/http.h>
 
@@ -16,199 +17,356 @@
 /* the server banner */
 #define SERVER_BANNER SERVER_NAME"/1.0"
 
-/* the index page */
-#define INDEX_PAGE "/index.html"
+extern const http_request_identifier_t g_http_request_types[];
 
-extern const http_request_identifier_t g_request_types[];
+extern const http_response_identifier_t g_http_response_types[];
 
-extern const http_response_identifier_t g_response_types[];
-
-int main(int argc, char *argv[]) {
-	/* the exit code */
-	int exit_code = EXIT_FAILURE;
-	
-	/* the request */
-	http_request_t request;
-	
-	/* the raw request */
-	unsigned char raw_request[HTTP_MAX_REQUEST_SIZE];
+http_response_type_t _receive_request(unsigned char *raw_request,
+                                      const size_t size,
+                                      http_request_t *request) {
+	/* the return value */
+	http_response_type_t result;
 
 	/* the raw request size */
 	ssize_t request_size;
 
-	/* the request host */
+	/* receive the request */
+	request_size = read(STDIN_FILENO, raw_request, size);
+	switch (request_size) {
+		case (-1):
+		case 0:
+			result = HTTP_RESPONSE_BAD_REQUEST;
+			goto end;
+
+		default:
+			if (size == (size_t) request_size) {
+				result = HTTP_RESPONSE_REQUEST_TOO_LARGE;
+				goto end;
+			}
+	}
+
+	/* terminate the request */
+	raw_request[request_size] = '\0';
+
+	/* parse the request headers */
+	result = http_headers_parse(request, (char *) raw_request);
+	if (HTTP_RESPONSE_OK != result)
+		goto end;
+
+	/* ignore anything but GET requests */
+	if (HTTP_REQUEST_TYPE_GET != request->type) {
+		result = HTTP_RESPONSE_METHOD_NOT_ALLOWED;
+		goto end;
+	}
+
+	/* report success */
+	result = HTTP_RESPONSE_OK;
+
+end:
+	return result;
+}
+
+http_response_type_t _enter_root(const char *root,
+                                 const http_request_t *request,
+                                 const char *default_host) {
+	/* the return value */
+	http_response_type_t result = HTTP_RESPONSE_REQUEST_TOO_LARGE;
+
+	/* the host */
 	const char *host;
-	
-	/* the response */
-	http_response_t response;
-	
+
+	/* the host root */
+	char host_root[PATH_MAX];
+
+	/* the host root absolute path */
+	char absolute_root[PATH_MAX];
+
+	/* get the requested host */
+	host = http_request_get_header(request, "Host");
+	if (NULL == host)
+		host = default_host;
+
+	/* obtain the host root directory */
+	if (sizeof(host_root) <= snprintf((char *) &host_root,
+	                                  sizeof(host_root),
+	                                  "%s/%s",
+	                                  root,
+	                                  host))
+		goto end;
+
+	/* get host root directory's absolute path */
+	if (NULL == realpath((char *) &host_root, (char *) &absolute_root)) {
+		result = HTTP_RESPONSE_NOT_FOUND;
+		goto end;
+	}
+
+	/* make sure the host root directory path is indeed an absolute path -
+	 * otherwise, it could be a path traversal attempt*/
+	if (0 != strcmp((const char *) &absolute_root, (const char *) &host_root)) {
+		result = HTTP_RESPONSE_FORBIDDEN;
+		goto end;
+	}
+
+	/* change the server root directory */
+	if (-1 == chroot((const char *) &host_root)) {
+		result = HTTP_RESPONSE_INTERNAL_ERROR;
+		goto end;
+	}
+
+	/* report success */
+	result = HTTP_RESPONSE_OK;
+
+end:
+	return result;
+}
+
+http_response_type_t _open_file(const http_request_t *request,
+                                off_t *size,
+                                int *fd) {
+	/* the return value */
+	http_response_type_t result = HTTP_RESPONSE_INTERNAL_ERROR;
+
+	/* the host root directory */
+	DIR *root;
+
+	/* a file under the diretcory */
+	struct dirent _entry;
+	struct dirent *entry;
+
+	/* the requested file path */
+	const char *path;
+
+	/* the requested file attributes */
+	struct stat attributes;
+
+	/* if no file was requested, locate the index page */
+	if (0 != strcmp("/", request->url))
+		path = request->url;
+	else {
+		/* until the index is found, unset the URL */
+		path = NULL;
+
+		/* open the root directory */
+		root = opendir(".");
+		if (NULL == root)
+			goto end;
+
+		do {
+			/* read the name of one file */
+			if (0 != readdir_r(root, &_entry, &entry))
+				goto close_root;
+			if (NULL == entry)
+				break;
+
+			/* if the file name begins with "index", use it */
+			if (0 == strncmp((const char *) &entry->d_name,
+			                 "index",
+			                 sizeof("index") - sizeof(char))) {
+				path = (const char *) &entry->d_name;
+				break;
+			}
+		} while (1);
+
+close_root:
+		/* close the root directory */
+		(void) closedir(root);
+
+		/* if the index file was not found, report failure */
+		if (NULL == path)
+			goto end;
+	}
+
+	/* get the file attributes */
+	if (-1 == stat(path, &attributes)) {
+		result = HTTP_RESPONSE_NOT_FOUND;
+		goto end;
+	}
+
+	/* make sure the file is a regular file */
+	if (!(S_ISREG(attributes.st_mode))) {
+		result = HTTP_RESPONSE_NOT_FOUND;
+		goto end;
+	}
+
+	/* open the file for reading; upon failure, to not disclose why it could not
+	 * be opened */
+	*fd = open(path, O_RDONLY);
+	if (-1 == *fd) {
+		result = HTTP_RESPONSE_NOT_FOUND;
+		goto end;
+	}
+
+	/* return the file size */
+	*size = attributes.st_size;
+
+	/* report success */
+	result = HTTP_RESPONSE_OK;
+
+end:
+	return result;
+}
+
+http_response_type_t _add_common_headers(http_response_t *response,
+                                         char *now_textual) {
+	/* the return value */
+	http_response_type_t result = HTTP_RESPONSE_INTERNAL_ERROR;
+
 	/* the current time */
 	time_t now;
 
 	/* the local time */
 	struct tm local_time;
-	
-	/* the local time, in textual form */
-	char now_textual[26];
 
-	/* the sent file */
-	int fd = -1;
-	
-	/* the file attributes */
-	struct stat attributes;
-	
-	/* the content size, in textual form */
-	char content_size[STRLEN("18446744073709551615")];
+	/* get the local time */
+	(void) time(&now);
+	if (NULL == gmtime_r(&now, &local_time))
+		goto end;
+	if (NULL == asctime_r(&local_time, now_textual))
+		goto end;
+	now_textual[strlen(now_textual) - 1] = '\0';
 
+	/* add all common headers */
+	if (false == http_header_add(&response->headers,
+	                             &response->headers_count,
+	                             "Date",
+	                             now_textual))
+		goto end;
+	if (false == http_header_add(&response->headers,
+	                             &response->headers_count,
+	                             "Server",
+	                             SERVER_BANNER))
+		goto end;
+	if (false == http_header_add(&response->headers,
+	                             &response->headers_count,
+	                             "Connection",
+	                             "close"))
+		goto end;
+
+	/* report success */
+	result = HTTP_RESPONSE_OK;
+
+end:
+	return result;
+}
+
+void _log_request(http_request_t *request, http_response_t *response) {
 	/* the client user agent */
 	const char *user_agent;
 
-	/* initialize the response headers */
-	response.headers = NULL;
-	response.headers_count = 0;
-	
+	/* the referer */
+	const char *referer;
+
+	/* get the client name and version */
+	user_agent = http_request_get_header(request, "User-Agent");
+	if (NULL == user_agent)
+		user_agent = "";
+
+	/* get the referer URL */
+	referer = http_request_get_header(request, "Referer");
+	if (NULL == referer)
+		referer = "";
+
+	/* log the request to the system log */
+	syslog(LOG_INFO,
+	       "%s%s [%s] (%s) -> %s",
+	       g_http_request_types[request->type].text,
+	       request->url,
+	       referer,
+	       user_agent,
+	       g_http_response_types[response->type].text);
+}
+
+
+int main(int argc, char *argv[]) {
+	/* the exit code */
+	int exit_code = EXIT_FAILURE;
+
+	/* the raw request */
+	unsigned char raw_request[HTTP_MAX_REQUEST_SIZE];
+
+	/* the request */
+	http_request_t request;
+
+	/* the response */
+	http_response_t response;
+
+	/* the sent file */
+	int fd = -1;
+
+	/* the file size */
+	off_t content_size;
+
+	/* the file  size, in textual form */
+	char content_size_textual[STRLEN("18446744073709551615")];
+
+	/* the current time, in textual form */
+	char now[26];
+
 	/* make sure the right number of command-line arguments was passed */
-	if (3 != argc) {
-		response.type = HTTP_RESPONSE_INTERNAL_ERROR;
+	if (3 != argc)
 		goto end;
-	}
-
-	/* receive the request */
-	request_size = read(STDIN_FILENO, (void *) &raw_request, sizeof(raw_request));
-	switch (request_size) {
-		case 0:
-		case (-1):
-			goto end;
-
-		case sizeof(request_size):
-			response.type = HTTP_RESPONSE_REQUEST_TOO_LARGE;
-			goto send_response;
-	}
-	
-	/* terminate the request */
-	raw_request[request_size] = '\0';
-
-	/* parse the request headers */
-	response.type = http_headers_parse(&request, (char *) &raw_request);
-	if (HTTP_RESPONSE_OK != response.type)
-		goto send_response;
-
-	/* ignore anything but GET requests */
-	if (HTTP_REQUEST_TYPE_GET != request.type) {
-		response.type = HTTP_RESPONSE_METHOD_NOT_ALLOWED;
-		goto send_response;
-	}
-
-	/* make sure the request host is correct */
-	host = http_request_get_header(&request, "Host");
-	if (NULL != host) {
-		if (0 != strcmp(argv[2], host)) {
-			response.type = HTTP_RESPONSE_NOT_FOUND;
-			goto send_response;
-		}
-	}
 
 	/* open the system log */
 	openlog(SERVER_NAME, LOG_NDELAY | LOG_PID, LOG_USER);
 
+	/* initialize the response headers */
+	response.headers = NULL;
+	response.headers_count = 0;
+
+	/* receive the request */
+	request.headers = NULL;
+	request.headers_count = 0;
+	response.type = _receive_request((unsigned char *) &raw_request,
+	                                 sizeof(raw_request),
+	                                 &request);
+	if (HTTP_RESPONSE_OK != response.type)
+		goto log_request;
+
 	/* change the server root directory */
-	if (-1 == chroot(argv[1])) {
-		response.type = HTTP_RESPONSE_FORBIDDEN;
+	response.type = _enter_root(argv[1], &request, argv[2]);
+	if (HTTP_RESPONSE_OK != response.type)
 		goto send_response;
-	}
 
-	/* if no file was requested, return the index page */
-	if (0 == strcmp("/", request.url))
-		request.url = INDEX_PAGE;
-
-	/* get the file attributes */
-	if (-1 == stat(request.url, &attributes)) {
-		response.type = HTTP_RESPONSE_NOT_FOUND;
+	/* open the sent file */
+	response.type = _open_file(&request, &content_size, &fd);
+	if (HTTP_RESPONSE_OK != response.type)
 		goto send_response;
-	}
-
-	/* make sure the file is a regular file */
-	if (!(S_ISREG(attributes.st_mode))) {
-		response.type = HTTP_RESPONSE_NOT_FOUND;
-		goto send_response;
-	}
 
 	/* convert the file size to textual form */
-	if (sizeof(content_size) <= snprintf((char *) &content_size,
-	                                     sizeof(content_size),
-	                                     "%u",
-	                                     (unsigned int) attributes.st_size)) {
+	if (sizeof(content_size_textual) <= snprintf((char *) &content_size_textual,
+	                                             sizeof(content_size_textual),
+	                                             "%u",
+	                                             (unsigned int) content_size)) {
 		response.type = HTTP_RESPONSE_INTERNAL_ERROR;
 		goto send_response;
 	}
 
-	/* open the file for reading */
-	fd = open(request.url, O_RDONLY);
-	if (-1 == fd) {
-		response.type = HTTP_RESPONSE_NOT_FOUND;
-		goto send_response;
-	}
-
-	/* add the response headers */
+	/* add the content size header */
 	if (false == http_header_add(&response.headers,
 	                             &response.headers_count,
 	                             "Content-Length",
-	                             (const char *) &content_size))
+	                             (const char *) &content_size_textual))
 		goto close_file;
 
 send_response:
-	/* get the local time */
-	(void) time(&now);
-	if (NULL == gmtime_r(&now, &local_time)) {
+	/* add all common headers */
+	if (HTTP_RESPONSE_OK != _add_common_headers(&response, (char *) &now)) {
 		response.type = HTTP_RESPONSE_INTERNAL_ERROR;
-		goto send_response;
+		goto close_file;
 	}
-	if (NULL == asctime_r(&local_time, (char *) &now_textual)) {
-		response.type = HTTP_RESPONSE_INTERNAL_ERROR;
-		goto send_response;
-	}
-	now_textual[strlen((const char *) &now_textual) - 1] = '\0';
-
-	if (false == http_header_add(&response.headers,
-	                             &response.headers_count,
-	                             "Date",
-	                             (const char *) &now_textual))
-		goto close_file;
-	if (false == http_header_add(&response.headers,
-	                             &response.headers_count,
-	                             "Server",
-	                             SERVER_BANNER))
-		goto close_file;
-	if (false == http_header_add(&response.headers,
-	                             &response.headers_count,
-	                             "Connection",
-	                             "close"))
-		goto close_file;
 
 	/* send the response */
-	if (true == http_response_send(stdout, &response, fd, attributes.st_size))
+	if (true == http_response_send(stdout, &response, fd, content_size))
 		exit_code = EXIT_SUCCESS;
-
-	/* get the client name and version */
-	user_agent = http_request_get_header(&request, "User-Agent");
-	if (NULL == user_agent)
-		user_agent = "unknown";
-
-	/* log the request to the system log */
-	syslog(LOG_INFO,
-	       "%s%s (%s) -> %s",
-	       g_request_types[request.type].text,
-	       request.url,
-	       user_agent,
-	       g_response_types[request.type].text);
 
 close_file:
 	/* close the file */
 	if (-1 != fd)
 		(void) close(fd);
 
-	/* close the system log */
-	closelog();
+log_request:
+	/* log the request */
+	_log_request(&request, &response);
 
 	/* free the response headers */
 	if (NULL != response.headers)
@@ -216,6 +374,9 @@ close_file:
 
 	/* free the request headers */
 	free(request.headers);
+
+	/* close the system log */
+	closelog();
 
 end:
 	return exit_code;

@@ -11,12 +11,12 @@
 #include <liblazy/common.h>
 #include <liblazy/http.h>
 
-const http_request_identifier_t g_request_types[] = {
+const http_request_identifier_t g_http_request_types[] = {
 	{ "GET ", STRLEN("GET ") },
 	{ "POST ", STRLEN("POST ") }
 };
 
-const http_response_identifier_t g_response_types[] = {
+const http_response_identifier_t g_http_response_types[] = {
 	{ 200, "200 OK" },
 	{ 400, "400 Bad Request" },
 	{ 403, "403 Forbidden" },
@@ -73,12 +73,12 @@ http_response_type_t http_headers_parse(http_request_t *request,
 	http_request_type_t i;
 
 	/* locate the URL, according to the request type */
-	for (i = 0; ARRAY_SIZE(g_request_types) > i; ++i) {
+	for (i = 0; ARRAY_SIZE(g_http_request_types) > i; ++i) {
 		if (0 == strncmp(raw_request,
-		                 g_request_types[i].text,
-		                 g_request_types[i].length)) {
+		                 g_http_request_types[i].text,
+		                 g_http_request_types[i].length)) {
 			request->url = (const char *) raw_request;
-			request->url += g_request_types[i].length;
+			request->url += g_http_request_types[i].length;
 			request->type = i;
 			goto parse_headers;
 		}
@@ -93,10 +93,6 @@ parse_headers:
 		response = HTTP_RESPONSE_BAD_REQUEST;
 		goto end;
 	}
-
-	/* initialize the headers array */
-	request->headers = NULL;
-	request->headers_count = 0;
 
 	do {
 		/* continue to the next header */
@@ -187,7 +183,7 @@ bool http_response_send(FILE *stream,
 	/* send the status code and the date */
 	if (0 > fprintf(stream,
 	                "HTTP/1.1 %s\r\n",
-	                g_response_types[response->type].text))
+	                g_http_response_types[response->type].text))
 		goto end;
 		
 	/* send all headers */
