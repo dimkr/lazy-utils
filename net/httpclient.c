@@ -8,6 +8,7 @@
 #include <string.h>
 #include <syslog.h>
 #include <dirent.h>
+#include <limits.h>
 #include <liblazy/common.h>
 #include <liblazy/mime.h>
 #include <liblazy/http.h>
