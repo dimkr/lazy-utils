@@ -243,11 +243,13 @@ http_response_type_t _add_common_headers(http_response_t *response,
 	                             "Server",
 	                             SERVER_BANNER))
 		goto end;
-	if (false == http_header_add(&response->headers,
-	                             &response->headers_count,
-	                             "Content-Type",
-	                             mime_type))
-		goto end;
+	if (NULL != mime_type) {
+		if (false == http_header_add(&response->headers,
+		                             &response->headers_count,
+		                             "Content-Type",
+		                             mime_type))
+			goto end;
+	}
 	if (false == http_header_add(&response->headers,
 	                             &response->headers_count,
 	                             "Connection",
@@ -345,6 +347,9 @@ int main(int argc, char *argv[]) {
 	                                 &request);
 	if (HTTP_RESPONSE_OK != response.type)
 		goto log_request;
+
+	/* initialize the MIME type */
+	mime_type = NULL;
 
 	/* change the server root directory */
 	response.type = _enter_root(argv[1], &request, argv[2], &host);
