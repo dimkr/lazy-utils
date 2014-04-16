@@ -44,7 +44,9 @@ int main(int argc, char *argv[]) {
 	if (-1 == stat(argv[1], &dest_attributes))
 		dest_path = argv[2];
 	else {
-		if (S_ISDIR(dest_attributes.st_mode)) {
+		if (!(S_ISDIR(dest_attributes.st_mode)))
+			dest_path = argv[2];
+		else {
 			if (sizeof(path) <= snprintf((char *) &path,
 			                             sizeof(path),
 			                             "%s/%s",
