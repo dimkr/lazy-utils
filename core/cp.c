@@ -3,6 +3,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <limits.h>
+#include <stdio.h>
+#include <libgen.h>
 #include <sys/sendfile.h>
 
 /* the copied file permissions */
@@ -17,7 +20,14 @@ int main(int argc, char *argv[]) {
 	int dest;
 
 	/* the source file attributes */
-	struct stat attributes;
+	struct stat source_attributes;
+
+	/* the destination file attributes */
+	struct stat dest_attributes;
+
+	/* the destination path */
+	char *dest_path;
+	char path[PATH_MAX];
 
 	/* the offset to copy from */
 	off_t offset;
@@ -27,8 +37,24 @@ int main(int argc, char *argv[]) {
 		goto end;
 
 	/* get the source file size */
-	if (-1 == stat(argv[1], &attributes))
+	if (-1 == stat(argv[1], &source_attributes))
 		goto end;
+
+	/* check whether the destination file exists; if yes and it's a directory, append the base file name to its path */
+	if (-1 == stat(argv[1], &dest_attributes))
+		dest_path = argv[2];
+	else {
+		if (S_ISDIR(dest_attributes.st_mode)) {
+			if (sizeof(path) <= snprintf((char *) &path,
+			                             sizeof(path),
+			                             "%s/%s",
+			                             argv[1],
+			                             basename(argv[2])))
+				goto end;
+			dest_path = (char *) &path;
+		}
+	}
+
 
 	/* open the source file */
 	source = open(argv[1], O_RDONLY);
@@ -36,17 +62,17 @@ int main(int argc, char *argv[]) {
 		goto end;
 
 	/* create the destination file */
-	dest = open(argv[2], O_CREAT | O_WRONLY, FILE_PERMISSIONS);
+	dest = open(dest_path, O_CREAT | O_WRONLY, FILE_PERMISSIONS);
 	if (-1 == dest)
 		goto close_source;
 	
 	/* copy the file */
 	offset = 0;	
-	if ((ssize_t) attributes.st_size != sendfile(
-	                                            dest,
-	                                            source,
-	                                            &offset,
-	                                            (size_t) attributes.st_size))
+	if ((ssize_t) source_attributes.st_size != sendfile(
+	                                     dest,
+	                                     source,
+	                                     &offset,
+	                                     (size_t) source_attributes.st_size))
 		goto close_dest;
 
 	/* report success */
