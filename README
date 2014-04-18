@@ -34,9 +34,13 @@ At run-time, lazy-utils relies on the following file systems:
   - A writable file systems at /tmp
   - A writable file systems at /run
 
+In addition, mergedirs is implemented in user-mode, on top of FUSE
+(http://fuse.sourceforge.net/).
+
 Therefore, lazy-utils depends on GNU Linux-libre (http://linux-libre.fsfla.org/)
 or Linux (https://www.kernel.org/) of version 2.6.32 or
-above, built with CONFIG_SYSFS, CONFIG_PROC_FS and CONFIG_DEVTMPFS on.
+above, built with CONFIG_SYSFS, CONFIG_PROC_FS, CONFIG_DEVTMPFS and
+CONFIG_FUSE_FS on.
 
 Hacking
 =======
