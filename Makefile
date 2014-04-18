@@ -1,6 +1,6 @@
 include Makefile.inc
 
-all: .ksh .awk .sed .utils .sulogin .man
+all: .ksh .awk .utils .sulogin .man
 
 .compat:
 	cd compat; $(MAKE)
@@ -13,9 +13,6 @@ all: .ksh .awk .sed .utils .sulogin .man
 
 .awk: .compat
 	cd awk; $(MAKE)
-
-.sed: .compat
-	cd sed; $(MAKE)
 
 .utils: .lib
 	cd utils; $(MAKE)
@@ -34,7 +31,6 @@ install:
 	cd sulogin; $(MAKE) install
 	cd utils; $(MAKE) install
 	cd lib; $(MAKE) install
-	cd sed; $(MAKE) install
 	cd awk; $(MAKE) install
 	cd ksh; $(MAKE) install
 	cd compat; $(MAKE) install
@@ -47,7 +43,6 @@ clean:
 	cd sulogin; $(MAKE) clean
 	cd utils; $(MAKE) clean
 	cd lib; $(MAKE) clean
-	cd sed; $(MAKE) clean
 	cd awk; $(MAKE) clean
 	cd ksh; $(MAKE) clean
 	cd compat; $(MAKE) clean
