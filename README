@@ -19,13 +19,13 @@ lazy-utils provides a no-frills, BSD-licensed alternative to toybox
     multi-call binaries).
   - Small: prefers minimalism over tradition.
   - A mix of original code and larger tools ported from OpenBSD
-    (http://www.openbsd.org/).
+    (http://www.openbsd.org/) and NetBSD (http://www.netbsd.org/).
 
 Dependencies
 ============
 
-lazy-utils is designed for static linking and tested against two C libraries:
-musl (http://www.musl-libc.org/) and eglibc (http://www.eglibc.org/).
+lazy-utils is designed for static linking and tested against the musl
+(http://www.musl-libc.org/) C library.
 
 At run-time, lazy-utils relies on the following file systems:
   - A proc file system mounted at /proc
@@ -49,9 +49,8 @@ directory. However, bigger ones (such as ksh), which consist of multiple source
 files, have their own directory.
 
 All code shared between multiple tools is placed under the "lib" directory, as a
-single source file, while OpenBSD (http://www.openbsd.org/) compatibility code
-is placed under the "compat" directory, to make it easier to copy into the
-source trees of other projects.
+single source file, while BSD compatibility code is placed under the "compat"
+directory, to make it easier to copy into the source trees of other projects.
 
 Credits and Legal Information
 =============================
@@ -60,7 +59,8 @@ Most of lazy-utils is licensed under a 2-clause BSD license, see COPYING for the
 license text. For a list of its authors and contributors, see AUTHORS.
 
 The ksh, sed and awk implementations and the compatibility layer were taken from
-OpenBSD (http://www.openbsd.org/) and MirBSD (https://www.mirbsd.org/). They
-have their own legal information, under the respective directories.
+OpenBSD (http://www.openbsd.org/), MirBSD (https://www.mirbsd.org/) and NetBSD
+(http://www.netbsd.org/). They have their own legal information, under the
+respective directories.
 
 The ASCII art logo at the top was made using FIGlet (http://www.figlet.org/).

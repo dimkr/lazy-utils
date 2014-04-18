@@ -4,6 +4,9 @@
 #	include_next <stdlib.h>
 #	include <sys/types.h> /* u_int32_t */
 
+#	define setprogname(x) argv[0] = x
+#	define getprogname() argv[0]
+
 u_int32_t arc4random(void);
 
 #endif
