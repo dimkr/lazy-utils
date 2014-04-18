@@ -8,9 +8,6 @@ OBJECTS = alloc.o c_ksh.o c_sh.o c_test.o c_ulimit.o edit.o emacs.o eval.o \
 
 all: ksh
 
-%.o: %.c $(HEADERS)
-	$(CC) -c -o $@ $< $(CFLAGS)
-
 ksh: $(OBJECTS)
 	$(CC) -o $@ $^ $(LDFLAGS) $(LIBS)
 

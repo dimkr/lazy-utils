@@ -4,9 +4,6 @@ LIBS = -llazy -lcrypt
 
 all: sulogin
 
-%.o: %.c $(HEADERS)
-	$(CC) -c -o $@ $< $(CFLAGS)
-
 sulogin: $(OBJECTS)
 	$(CC) -o $@ $^ $(LDFLAGS) $(LIBS)
 

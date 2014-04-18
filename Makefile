@@ -1,6 +1,6 @@
 include Makefile.inc
 
-all: .ksh .awk .sed .file .utils .sulogin .man
+all: .ksh .awk .sed .file .utils .sulogin .mergedirs .man
 
 .compat:
 	cd compat; $(MAKE)
@@ -26,6 +26,9 @@ all: .ksh .awk .sed .file .utils .sulogin .man
 .sulogin: .lib
 	cd sulogin; $(MAKE)
 
+.mergedirs: .lib
+	cd mergedirs; $(MAKE)
+
 .man:
 	cd man; $(MAMKE)
 
@@ -35,6 +38,7 @@ install: all
 	$(INSTALL) -D -d -m 755 $(DESTDIR)/$(CONF_DIR)
 	$(INSTALL) -D -d -m 755 $(DESTDIR)/$(DOC_DIR)
 	cd man; $(MAKE) install
+	cd mergedirs; $(MAKE) install
 	cd sulogin; $(MAKE) install
 	cd utils; $(MAKE) install
 	cd lib; $(MAKE) install
@@ -49,6 +53,7 @@ install: all
 
 clean:
 	cd man; $(MAKE) clean
+	cd mergedirs; $(MAKE) clean
 	cd sulogin; $(MAKE) clean
 	cd utils; $(MAKE) clean
 	cd lib; $(MAKE) clean

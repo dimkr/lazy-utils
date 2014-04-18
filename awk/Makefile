@@ -6,9 +6,6 @@ OBJECTS = b.o lex.o lib.o main.o parse.o proctab.o run.o tran.o ytab.o
 
 all: awk
 
-%.o: %.c $(HEADERS)
-	$(CC) -c -o $@ $< $(CFLAGS)
-
 awk: $(OBJECTS)
 	$(CC) -o $@ $^ $(LDFLAGS) $(LIBS)
 

@@ -55,12 +55,18 @@ directory, to make it easier to copy into the source trees of other projects.
 Credits and Legal Information
 =============================
 
-Most of lazy-utils is licensed under a 2-clause BSD license, see COPYING for the
-license text. For a list of its authors and contributors, see AUTHORS.
-
 The ksh, sed and awk implementations and the compatibility layer were taken from
 OpenBSD (http://www.openbsd.org/), MirBSD (https://www.mirbsd.org/) and NetBSD
 (http://www.netbsd.org/). They have their own legal information, under the
 respective directories.
+
+mergedis is licensed under the LGPL (https://www.gnu.org/licenses/lgpl-2.1.html)
+license, version 2.1.
+
+The crc32 implementation included in lazy-utils is based on public domain code
+by Craig Bruce (http://www.csbruce.com/software/).
+
+The rest of lazy-utils is licensed under a 2-clause BSD license, see COPYING for
+the license text. For a list of its authors and contributors, see AUTHORS.
 
 The ASCII art logo at the top was made using FIGlet (http://www.figlet.org/).

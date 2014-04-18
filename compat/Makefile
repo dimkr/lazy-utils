@@ -5,9 +5,6 @@ OBJECTS = arc4random.o fgetln.o
 
 all: libcompat.a
 
-%.o: %.c
-	$(CC) -c -o $@ $< $(CFLAGS)
-
 libcompat.a: $(OBJECTS)
 	ar rcs libcompat.a $(OBJECTS)
 
