@@ -8,27 +8,18 @@
 Overview
 ========
 
-lazy-utils is a collection of tiny, permissively-licensed system utilities that
-do the absolute minimum required to achieve a security-hardened, fast and tiny,
-GNU Linux-libre (http://linux-libre.fsfla.org/) or Linux
-(https://www.kernel.org/) embedded system.
+lazy-utils is a permissively-licensed set of system tools that makes it easy to
+build a security-hardened, fast and tiny, Linux (https://www.kernel.org/)
+embedded system.
 
-lazy-utils is meant to provide a no-frills, BSD-licensed alternative to
-toybox (http://www.landley.net/toybox/) and BusyBox (http://www.busybox.net/).
-However, lazy-utils does not follow any standard; it tries to balance between
-tradition and minimalism, with a tendency towards the latter.
-
-lazy-utils is heavily tied to Lazyux (https://github.com/iguleder/lazyux), a
-reference operating system built on top of it, which follows the same ideology.
-
-Building
-========
-
-In order to build lazy-utild, run build.sh. Then, install it into a directory
-using install.sh, e.g:
-
-  ./build.sh
-  ./install.sh /tmp/lazy-utils
+lazy-utils provides a no-frills, BSD-licensed alternative to toybox
+(http://www.landley.net/toybox/), BusyBox (http://www.busybox.net/) and obase
+(https://github.com/chneukirchen/obase). However, lazy-utils is:
+  - Neutral: it does not follow any standard or design philosophy (i.e
+    multi-call binaries).
+  - Small: prefers minimalism over tradition.
+  - A mix of original code and larger tools ported from OpenBSD
+    (http://www.openbsd.org/).
 
 Dependencies
 ============
@@ -50,22 +41,26 @@ above, built with CONFIG_SYSFS, CONFIG_PROC_FS and CONFIG_DEVTMPFS on.
 Hacking
 =======
 
-lazy-utils is written in the C language (more sepecifically, C99).
+lazy-utils is written in the C language. All original parts of it rely on C99
+features.
 
-Each lazy-utils tool or utility consist of a single source file, placed under a
-directory with a meaningful name. For example, the "process" directory contains
-process-related utilities. Placing a source file under a directory is enough to
-add a tool to lazy-utils.
+Most tools consist of a single source file and placed under the the "utils"
+directory. However, bigger ones (such as ksh), which consist of multiple source
+files, have their own directory.
 
-All code shared between multiple executables of the same category is placed
-under the "lib" directory, as a single source file. All files under this
-directory gets merged into a static library, liblazy.a. The library headers are
-located at the "include" directory.
+All code shared between multiple tools is placed under the "lib" directory, as a
+single source file, while OpenBSD (http://www.openbsd.org/) compatibility code
+is placed under the "compat" directory, to make it easier to copy into the
+source trees of other projects.
 
 Credits and Legal Information
 =============================
 
-lazy-utils is licensed under a 2-clause BSD license, see COPYING for the license
-text. For a list of its authors and contributors, see AUTHORS.
+Most of lazy-utils is licensed under a 2-clause BSD license, see COPYING for the
+license text. For a list of its authors and contributors, see AUTHORS.
+
+The ksh, sed and awk implementations and the compatibility layer were taken from
+OpenBSD (http://www.openbsd.org/) and MirBSD (https://www.mirbsd.org/). They
+have their own legal information, under the respective directories.
 
 The ASCII art logo at the top was made using FIGlet (http://www.figlet.org/).
