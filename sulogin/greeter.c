@@ -191,7 +191,7 @@ bool greeter_login(greeter_t *greeter, const char *user) {
 
 	/* print the contents of /etc/issue */
 	if (true == greeter->is_interactive)
-		(void) terminal_print_file(&greeter->terminal, "/etc/issue");
+		(void) terminal_print_file(&greeter->terminal, CONF_DIR"/issue");
 
 	/* if no user name was specified, show a user name prompt */
 	if (NULL == user) {
@@ -217,7 +217,7 @@ bool greeter_login(greeter_t *greeter, const char *user) {
 
 	/* print the contents of /etc/motd */
 	if (true == greeter->is_interactive)
-		(void) terminal_print_file(&greeter->terminal, "/etc/motd");
+		(void) terminal_print_file(&greeter->terminal, CONF_DIR"/motd");
 
 	/* report success */
 	is_success = true;

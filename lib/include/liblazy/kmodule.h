@@ -18,7 +18,7 @@
 
 #	define LOADED_KERNEL_MODULES_LIST_MAX_ENTRY_SIZE (1024)
 
-#	define KERNEL_MODULE_BLACKLIST_PATH "/etc/kmodule.blacklist"
+#	define KERNEL_MODULE_BLACKLIST_PATH CONF_DIR"/kmodule.blacklist"
 
 enum kernel_module_cache_types {
 	CACHE_TYPE_KERNEL_MODULE_PATH,
