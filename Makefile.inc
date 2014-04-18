@@ -7,6 +7,7 @@ LDFLAGS ?= -s
 LDFLAGS += -L../compat -L../lib
 INSTALL = install -v
 DESTDIR ?= /
+CONF_DIR ?= /etc
 BIN_DIR ?= /bin
 MAN_DIR ?= /usr/share/man
 DOC_DIR ?= /usr/share/doc/lazy-utils
