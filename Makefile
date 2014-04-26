@@ -42,6 +42,7 @@ install: all
 	$(INSTALL) -D -d -m 755 $(DESTDIR)/$(DOC_DIR)
 	cd man; $(MAKE) install
 	cd mergedirs; $(MAKE) install
+	cd kmodule; $(MAKE) install
 	cd sulogin; $(MAKE) install
 	cd utils; $(MAKE) install
 	cd file; $(MAKE) install
