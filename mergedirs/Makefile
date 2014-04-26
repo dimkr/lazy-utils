@@ -1,7 +1,7 @@
 include ../Makefile.inc
 
-LIBS = -llazy $(shell $(PKG_CONFIG) --libs fuse)
-CFLAGS += $(shell $(PKG_CONFIG) --cflags fuse)
+LIBS = -llazy $(shell $(PKG_CONFIG) --libs zlib fuse)
+CFLAGS += $(shell $(PKG_CONFIG) --cflags zlib fuse)
 
 all: mergedirs
 

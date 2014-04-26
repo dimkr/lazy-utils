@@ -64,11 +64,8 @@ OpenBSD (http://www.openbsd.org/), MirBSD (https://www.mirbsd.org/) and NetBSD
 (http://www.netbsd.org/). They have their own legal information, under the
 respective directories.
 
-mergedis is licensed under the LGPL (https://www.gnu.org/licenses/lgpl-2.1.html)
+mergedirs is licensed under the LGPL (https://www.gnu.org/licenses/lgpl-2.1.html)
 license, version 2.1.
-
-The crc32 implementation included in lazy-utils is based on public domain code
-by Craig Bruce (http://www.csbruce.com/software/).
 
 The rest of lazy-utils is licensed under a 2-clause BSD license, see COPYING for
 the license text. For a list of its authors and contributors, see AUTHORS.

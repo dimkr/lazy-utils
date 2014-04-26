@@ -4,6 +4,7 @@
 #	include <stdio.h>
 #	include <stdbool.h>
 #	include <limits.h>
+#	include <zlib.h>
 #	include <liblazy/common.h>
 #	include <liblazy/io.h>
 #	include <liblazy/cache.h>
@@ -58,7 +59,7 @@ typedef struct {
 	cache_entry_header_t *cache_entry;
 	char name[NAME_MAX];
 	char path[PATH_MAX];
-	crc32_t hash;
+	uLong hash;
 	file_t file;
 	kmodule_field_t _fields[ARRAY_SIZE(g_kmodule_fields)];
 } kmodule_t;

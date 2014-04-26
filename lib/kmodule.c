@@ -176,7 +176,7 @@ end:
 
 typedef struct {
 	const char *alias;
-	crc32_t hash;
+	uLong hash;
 } _module_alias_match_t;
 
 bool _does_module_match_alias(const cache_entry_header_t *entry,
@@ -397,7 +397,7 @@ bool _is_module_loaded(kmodule_loader_t *loader, const kmodule_t *module) {
 bool _is_blacklisted(const cache_entry_header_t *entry,
                      const char *value,
                      void *hash) {
-	if ((crc32_t) ((intptr_t) hash) == entry->hash)
+	if ((uLong) ((intptr_t) hash) == entry->hash)
 		return true;
 
 	return false;

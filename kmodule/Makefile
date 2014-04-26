@@ -1,6 +1,7 @@
 include ../Makefile.inc
 
-LIBS = -llazy
+LIBS = -llazy $(shell $(PKG_CONFIG) --libs zlib)
+CFLAGS += $(shell $(PKG_CONFIG) --cflags zlib)
 
 PROGS = $(SRCS:.c=)
 

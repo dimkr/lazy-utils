@@ -5,11 +5,11 @@
 #	include <string.h>
 #	include <stdint.h>
 #	include <liblazy/io.h>
-#	include <liblazy/crc32.h>
+#	include <zlib.h>
 
 typedef struct __attribute__((packed)) {
 	uint8_t type;
-	crc32_t hash;
+	uLong hash;
 	uint16_t size;
 } cache_entry_header_t;
 
@@ -18,14 +18,14 @@ typedef struct {
 } cache_file_t;
 
 #define HASH_STRING(string) \
-	crc32_hash((const unsigned char *) string, strlen(string))
+	crc32(crc32(0L, NULL, 0), (const Bytef *) string, (uInt) strlen(string))
 
 bool cache_open(cache_file_t *cache, const char *path);
 void cache_close(cache_file_t *cache);
 
 bool cache_file_get_by_hash(cache_file_t *cache,
                             const uint8_t type,
-                            const crc32_t hash,
+                            const uLong hash,
                             unsigned char **value,
                             size_t *size);
 #define cache_file_get_by_string(cache, \

@@ -11,8 +11,8 @@
 #include <dirent.h>
 #include <stdint.h>
 #include <string.h>
+#include <zlib.h>
 #include "tree.h"
-#include <liblazy/crc32.h>
 
 typedef struct {
 	DIR *handle;
@@ -22,7 +22,7 @@ typedef struct {
 typedef struct {
 	char name[1 + NAME_MAX];
 	struct stat attributes;
-	crc32_t hash;
+	uLong hash;
 } _entry_t;
 
 typedef struct {
@@ -409,7 +409,7 @@ int _read_directory(_dir_t *directory,
 	struct stat attributes;
 
 	/* the file name hash */
-	crc32_t hash;
+	uLong hash;
 
 	/* the file path */
 	char path[PATH_MAX];
@@ -439,8 +439,10 @@ next:
 		}
 
 		/* hash the file name */
-		hash = crc32_hash((const unsigned char *) &entry_pointer->d_name,
-		                  strnlen((char *) &entry_pointer->d_name, NAME_MAX));
+		hash = crc32(
+		      crc32(0L, NULL, 0),
+		      (const Bytef *) &entry_pointer->d_name,
+		      (uInt) strnlen((char *) &entry_pointer->d_name, NAME_MAX));
 
 		/* if there's another file with the same hash, continue to the next
 		 * one */

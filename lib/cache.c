@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <zlib.h>
 #include <liblazy/cache.h>
 
 bool cache_open(cache_file_t *cache, const char *path) {
@@ -46,7 +47,7 @@ bool cache_search(cache_file_t *cache,
 }
 
 typedef struct {
-	crc32_t hash;
+	uLong hash;
 	unsigned char **value;
 	size_t *size;
 } _cache_fetch_params_t;
@@ -66,7 +67,7 @@ bool _get_first_match(const cache_entry_header_t *entry,
 
 bool cache_file_get_by_hash(cache_file_t *cache,
                             const uint8_t type,
-                            const crc32_t hash,
+                            const uLong hash,
                             unsigned char **value,
                             size_t *size) {
 	_cache_fetch_params_t parameters;
@@ -94,7 +95,7 @@ bool cache_file_add(const int fd,
 
 	/* write the cache entry header */
 	header.type = type;
-	header.hash = crc32_hash(key, key_size);
+	header.hash = crc32(crc32(0L, NULL, 0), key, (uInt) key_size);
 	header.size = value_size;
 	if (sizeof(header) != write(fd, &header, sizeof(header)))
 		goto end;
