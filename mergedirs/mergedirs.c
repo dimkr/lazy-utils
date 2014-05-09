@@ -33,6 +33,7 @@ typedef struct {
 } _dir_pair_t;
 
 static int stack_stat(const char *name, struct stat *stbuf);
+static int stack_open(const char *name, struct fuse_file_info *fi);
 
 const char *g_lower_directory = NULL;
 const char *g_upper_directory = NULL;
@@ -68,8 +69,13 @@ static int stack_create(const char *name,
 	if (-1 == fi->fh)
 		goto failure;
 
-	/* report success */
-	return 0;
+	/* close the file */
+	(void) close(fi->fh);
+
+	/* open the newly created file with the requested flags */
+	fi->flags &= ~O_CREAT;
+	fi->flags &= ~O_EXCL;
+	return stack_open(name, fi);
 
 failure:
 	return -errno;
@@ -265,7 +271,7 @@ static int stack_rmdir(const char *name) {
 	                g_lower_directory,
 	                name);
 	if (0 == stat((char *) &path, &attributes)) {
-		return_value = -EPERM;
+		return_value = -EROFS;
 		goto end;
 	} else {
 		if (ENOENT != errno) {
@@ -290,7 +296,7 @@ end:
 
 static int stack_unlink(const char *name) {
 	/* the return value */
-	int return_value;
+	int return_value = -ENOENT;
 
 	/* the file path */
 	char path[PATH_MAX];
@@ -299,8 +305,7 @@ static int stack_unlink(const char *name) {
 	struct stat attributes;
 
 	/* make sure the file exists */
-	return_value = stack_stat(name, &attributes);
-	if (-ENOENT == return_value)
+	if (0 != stack_stat(name, &attributes))
 		goto end;
 
 	/* try to remove the file from the writeable directory */
@@ -312,10 +317,10 @@ static int stack_unlink(const char *name) {
 	if (0 == unlink((char *) &path))
 		return 0;
 
-	/* if the file exists only under the read-only directory, return EACCESS
+	/* if the file exists only under the read-only directory, return EROFS
 	 * upon failure to delete it */
 	if (ENOENT == errno)
-		return_value = -EACCES;
+		return_value = -EROFS;
 	else
 		return_value = -errno;
 
@@ -637,7 +642,7 @@ failure:
 
 static int stack_utimens(const char *name, const struct timespec tv[2]) {
 	/* the return value */
-	int return_value;
+	int return_value = -ENOENT;
 
 	/* the file path */
 	char path[PATH_MAX];
@@ -646,8 +651,7 @@ static int stack_utimens(const char *name, const struct timespec tv[2]) {
 	struct stat attributes;
 
 	/* make sure the file exists */
-	return_value = stack_stat(name, &attributes);
-	if (-ENOENT == return_value)
+	if (0 != stack_stat(name, &attributes))
 		goto end;
 
 	/* try to change the file modification time, in the writeable directory */
@@ -659,10 +663,10 @@ static int stack_utimens(const char *name, const struct timespec tv[2]) {
 	if (0 == utimensat(0, (char *) &path, tv, AT_SYMLINK_NOFOLLOW))
 		return 0;
 
-	/* if the file exists only under the read-only directory, return EACCESS
+	/* if the file exists only under the read-only directory, return EROFS
 	 * upon failure to change its modification time */
 	if (ENOENT == errno)
-		return_value = -EACCES;
+		return_value = -EROFS;
 	else
 		return_value = -errno;
 
@@ -672,7 +676,7 @@ end:
 
 static int stack_chmod(const char *name, mode_t mode) {
 	/* the return value */
-	int return_value;
+	int return_value = -ENOENT;
 
 	/* the file path */
 	char path[PATH_MAX];
@@ -681,8 +685,7 @@ static int stack_chmod(const char *name, mode_t mode) {
 	struct stat attributes;
 
 	/* make sure the file exists */
-	return_value = stack_stat(name, &attributes);
-	if (-ENOENT == return_value)
+	if (0 != stack_stat(name, &attributes))
 		goto end;
 
 	/* try to change the file permissions, in the writeable directory */
@@ -694,10 +697,10 @@ static int stack_chmod(const char *name, mode_t mode) {
 	if (0 == chmod((char *) &path, mode))
 		return 0;
 
-	/* if the file exists only under the read-only directory, return EACCESS
+	/* if the file exists only under the read-only directory, return EROFS
 	 * upon failure to change its permissions */
 	if (ENOENT == errno)
-		return_value = -EACCES;
+		return_value = -EROFS;
 	else
 		return_value = -errno;
 
@@ -707,7 +710,7 @@ end:
 
 static int stack_chown(const char *name, uid_t uid, gid_t gid) {
 	/* the return value */
-	int return_value;
+	int return_value = -ENOENT;
 
 	/* the file path */
 	char path[PATH_MAX];
@@ -716,8 +719,7 @@ static int stack_chown(const char *name, uid_t uid, gid_t gid) {
 	struct stat attributes;
 
 	/* make sure the file exists */
-	return_value = stack_stat(name, &attributes);
-	if (-ENOENT == return_value)
+	if (0 != stack_stat(name, &attributes))
 		goto end;
 
 	/* try to change the file owner, in the writeable directory */
@@ -729,10 +731,10 @@ static int stack_chown(const char *name, uid_t uid, gid_t gid) {
 	if (0 == chown((char *) &path, uid, gid))
 		return 0;
 
-	/* if the file exists only under the read-only directory, return EACCESS
+	/* if the file exists only under the read-only directory, return EROFS
 	 * upon failure to change its owner */
 	if (ENOENT == errno)
-		return_value = -EACCES;
+		return_value = -EROFS;
 	else
 		return_value = -errno;
 
@@ -742,7 +744,7 @@ end:
 
 static int stack_rename(const char *oldpath, const char *newpath) {
 	/* the return value */
-	int return_value;
+	int return_value = -ENOENT;
 
 	/* the original path */
 	char original_path[PATH_MAX];
@@ -754,8 +756,7 @@ static int stack_rename(const char *oldpath, const char *newpath) {
 	struct stat attributes;
 
 	/* make sure the file exists */
-	return_value = stack_stat(oldpath, &attributes);
-	if (-ENOENT == return_value)
+	if (0 != stack_stat(oldpath, &attributes))
 		goto end;
 
 	/* try to move the file, in the writeable directory */
@@ -772,10 +773,10 @@ static int stack_rename(const char *oldpath, const char *newpath) {
 	if (0 == rename((char *) &original_path, (char *) &new_path))
 		return 0;
 
-	/* if the file exists only under the read-only directory, return EACCESS
+	/* if the file exists only under the read-only directory, return EROFS
 	 * upon failure to move it */
 	if (ENOENT == errno)
-		return_value = -EACCES;
+		return_value = -EROFS;
 	else
 		return_value = -errno;
 
