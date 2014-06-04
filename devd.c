@@ -15,10 +15,10 @@
 #include "daemon.h"
 
 /* the maximum size of a netlink message */
-#	define MAX_MESSAGE_SIZE (sizeof(char) * (1 + MAX_LENGTH))
+#define MAX_MESSAGE_SIZE (sizeof(char) * (1 + MAX_LENGTH))
 
 /* the usage message */
-#	define USAGE "Usage: devd\n"
+#define USAGE "Usage: devd\n"
 
 static bool _handle_existing_device(const char *path, void *unused) {
 	/* the alias attributes */

@@ -7,7 +7,7 @@
 #include "common.h"
 
 /* the usage message */
-#	define USAGE "Usage: suspend\n"
+#define USAGE "Usage: suspend\n"
 
 int main(int argc, char *argv[]) {
 	/* the exit code */

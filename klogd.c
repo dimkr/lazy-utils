@@ -6,10 +6,10 @@
 #include "daemon.h"
 
 /* the maximum length of a kernel log message */
-#	define MAX_MESSAGE_LENGTH (MAX_LENGTH)
+#define MAX_MESSAGE_LENGTH (MAX_LENGTH)
 
 /* the usage message */
-#	define USAGE "Usage: klogd\n"
+#define USAGE "Usage: klogd\n"
 
 int main(int argc, char *argv[]) {
 	/* a log message */

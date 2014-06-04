@@ -14,8 +14,7 @@
 #include "common.h"
 
 /* the usage message */
-#	define USAGE "Usage: mount [-B|-R|-M] [-t TYPE] [-o OPTIONS] SOURCE " \
-                 "TARGET\n"
+#define USAGE "Usage: mount [-B|-R|-M] [-t TYPE] [-o OPTIONS] SOURCE TARGET\n"
 
 typedef struct {
 	const char *text;

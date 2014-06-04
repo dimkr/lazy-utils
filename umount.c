@@ -4,7 +4,7 @@
 #include "common.h"
 
 /* the usage message */
-#	define USAGE "Usage: umount TARGET\n"
+#define USAGE "Usage: umount TARGET\n"
 
 int main(int argc, char *argv[]) {
 	/* the exit code */

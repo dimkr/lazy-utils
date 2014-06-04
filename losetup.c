@@ -11,7 +11,7 @@
 #include "common.h"
 
 /* the usage message */
-#	define USAGE "Usage: losetup [-d] DEVICE [FILE]\n"
+#define USAGE "Usage: losetup [-d] DEVICE [FILE]\n"
 
 int _associate(const char *device_path,
                const char *file_path,

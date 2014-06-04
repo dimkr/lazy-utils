@@ -14,7 +14,7 @@
 #include "depmod.h"
 
 /* the usage message */
-#	define USAGE "Usage: modprobe MODULE\n"
+#define USAGE "Usage: modprobe MODULE\n"
 
 static bool _load_module(const char *name_or_alias, void *unused) {
 	/* the module path */

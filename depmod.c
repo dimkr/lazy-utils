@@ -19,13 +19,13 @@
 #include "depmod.h"
 
 /* the maximum size of a module alias */
-#	define MAX_ALIAS_LENGTH (MAX_LENGTH)
+#define MAX_ALIAS_LENGTH (MAX_LENGTH)
 
 /* the usage message */
-#	define USAGE "Usage: depmod\n"
+#define USAGE "Usage: depmod\n"
 
 /* the listening backlog size */
-#	define BACKLOG_SIZE (50)
+#define BACKLOG_SIZE (50)
 
 int main(int argc, char *argv[]) {
 	/* a module alias */

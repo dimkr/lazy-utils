@@ -12,19 +12,19 @@
 #include "daemon.h"
 
 /* the socket path */
-#	define SOCKET_PATH "/dev/log"
+#define SOCKET_PATH "/dev/log"
 
 /* the log file path */
-#	define LOG_FILE_PATH "/var/log/messages"
+#define LOG_FILE_PATH "/var/log/messages"
 
 /* the log file permissions */
-#	define LOG_FILE_PERMISSIONS (0644)
+#define LOG_FILE_PERMISSIONS (0644)
 
 /* the maximum length of a log message */
-#	define MAX_MESSAGE_LENGTH (MAX_LENGTH)
+#define MAX_MESSAGE_LENGTH (MAX_LENGTH)
 
 /* the usage message */
-#	define USAGE "Usage: syslogd\n"
+#define USAGE "Usage: syslogd\n"
 
 int main(int argc, char *argv[]) {
 	/* a log message */
