@@ -1,0 +1,26 @@
+.TH init 8
+.SH NAME
+.B init
+\- controls the system state
+.SH SYNOPSIS
+.B init
+.SH DESCRIPTION
+Manages system events and takes care of startup and shutdown procedures.
+.SH FILES
+.TP
+.B /etc/rc.d/startup
+The system startup script
+.TP
+.B /etc/rc.d/shutdown
+The system shutdown script
+.SH SIGNALS
+.TP
+.B SIGUSR1
+Shuts down the system
+.TP
+.B SIGUSR2
+Restarts the system
+.SH "SEE ALSO"
+.B poweroff(8), reboot(8), suspend(8)
+.SH AUTHOR
+Dima Krasner (dima@dimakrasner.com)

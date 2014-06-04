@@ -1,0 +1,32 @@
+.TH mount 8
+.SH NAME
+.B mount
+\- mounts a file system
+.SH SYNOPSIS
+.B mount
+[-B|-R|-M] [-t TYPE] [-o OPTIONS] SOURCE TARGET
+.SH DESCRIPTION
+Mounts a file system and manipulates mount points.
+.TP
+.B -t
+Specifies the file system type of a newly-mounted file system.
+.TP
+.B -o
+Specifies a list of comma-delimeted mounting options ("ro", "noexec", "nodev"
+and "nosuid").
+.TP
+.B -B
+When this options is specified, no file system is mounted. Instead, the contents
+of the source are mirrored on the destination.
+.TP
+.B -R
+When this options is specified, the behavior is same as that of "-B", but mount
+points under the mirrored directory are affected, too.
+.TP
+.B -M
+When this options is specified, an existing file system mounted at the source is
+moved to the destination.
+.SH "SEE ALSO"
+.B umount(8), losetup(8)
+.SH AUTHOR
+Dima Krasner (dima@dimakrasner.com)

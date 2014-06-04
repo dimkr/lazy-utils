@@ -8,18 +8,16 @@
 Overview
 ========
 
-lazy-utils is a permissively-licensed set of system tools that makes it easy to
-build a security-hardened, fast and tiny, Linux (https://www.kernel.org/)
-embedded system.
+lazy-utils is a permissively-licensed set of system tools that complement toybox
+(http://www.landley.net/toybox/).
 
-lazy-utils provides a no-frills, BSD-licensed alternative to toybox
-(http://www.landley.net/toybox/), BusyBox (http://www.busybox.net/) and obase
-(https://github.com/chneukirchen/obase). However, lazy-utils is:
-  - Neutral: it does not follow any standard or design philosophy (i.e
-    multi-call binaries).
-  - Small: prefers minimalism over tradition.
-  - A mix of original code and larger tools ported from OpenBSD
-    (http://www.openbsd.org/) and NetBSD (http://www.netbsd.org/).
+It provides lighweight, independent implementations of init and standard
+daemons, suitable for use in lighweight distributions.
+
+In the past, lazy-utils used to be a complete replacement for toybox
+(http://www.landley.net/toybox/) and BusyBox (http://www.busybox.net/), but now
+it focuses on extra applets or lighter alternatives to existing ones, with
+emphasis on short, easy to understand and solid code.
 
 Dependencies
 ============
@@ -31,43 +29,15 @@ At run-time, lazy-utils relies on the following file systems:
   - A proc file system mounted at /proc
   - A sysfs file system mounted at /sys
   - A devtmpfs file system mounted at /dev
-  - A writable file systems at /tmp
   - A writable file systems at /run
 
-In addition, mergedirs is implemented in user-mode, on top of FUSE
-(http://fuse.sourceforge.net/).
-
-Therefore, lazy-utils depends on GNU Linux-libre (http://linux-libre.fsfla.org/)
-or Linux (https://www.kernel.org/) of version 2.6.32 or
-above, built with CONFIG_SYSFS, CONFIG_PROC_FS, CONFIG_DEVTMPFS and
-CONFIG_FUSE_FS on.
-
-Hacking
-=======
-
-lazy-utils is written in the C language. All original parts of it rely on C99
-features.
-
-Most tools consist of a single source file and placed under the the "utils"
-directory. However, bigger ones (such as ksh), which consist of multiple source
-files, have their own directory.
-
-All code shared between multiple tools is placed under the "lib" directory, as a
-single source file, while BSD compatibility code is placed under the "compat"
-directory, to make it easier to copy into the source trees of other projects.
+Therefore, lazy-utils depends on Linux (http://www.kernel.org/) version 2.6.32
+or above, built with CONFIG_SYSFS, CONFIG_PROC_FS and CONFIG_DEVTMPFS on.
 
 Credits and Legal Information
 =============================
 
-The ksh, sed and awk implementations and the compatibility layer were taken from
-OpenBSD (http://www.openbsd.org/), MirBSD (https://www.mirbsd.org/) and NetBSD
-(http://www.netbsd.org/). They have their own legal information, under the
-respective directories.
-
-mergedirs is licensed under the LGPL (https://www.gnu.org/licenses/lgpl-2.1.html)
-license, version 2.1.
-
-The rest of lazy-utils is licensed under a 2-clause BSD license, see COPYING for
-the license text. For a list of its authors and contributors, see AUTHORS.
+lazy-utils is licensed under a 2-clause BSD license, see COPYING for the license
+text. For a list of its authors and contributors, see AUTHORS.
 
 The ASCII art logo at the top was made using FIGlet (http://www.figlet.org/).

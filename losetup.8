@@ -1,0 +1,19 @@
+.TH losetup 8
+.SH NAME
+.B losetup
+\- manages loop devices
+.SH SYNOPSIS
+.B losetup
+[-d] DEVICE [FILE]
+.SH DESCRIPTION
+Associates or unassociates a loop device with a file.
+.TP
+.B -d
+Unassociate the loop device
+.TP
+.B -r
+Associate the loop device with the file in read-only mode
+.SH "SEE ALSO"
+.B mount(8)
+.SH AUTHOR
+Dima Krasner (dima@dimakrasner.com)

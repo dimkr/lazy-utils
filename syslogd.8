@@ -1,0 +1,23 @@
+.TH syslogd 8
+.SH NAME
+.B syslogd
+\- manages the system log
+.SH SYNOPSIS
+.B syslogd
+.SH DESCRIPTION
+Receives log messages from other processes and writes them the system log.
+.SH FILES
+.TP
+.B /var/log/messages
+The system log
+.TP
+.B /dev/log
+The socket messages are received from
+.SH SIGNALS
+.TP
+.B SIGTERM
+Stops the process
+.SH "SEE ALSO"
+.B klogd(8)
+.SH AUTHOR
+Dima Krasner (dima@dimakrasner.com)

@@ -1,67 +1,96 @@
-include Makefile.inc
+CC ?= cc
+CFLAGS ?= -O2 -pipe
+LDFLAGS ?= -s
+DESTDIR ?=
+BIN_DIR ?= /bin
+SBIN_DIR ?= /sbin
+MAN_DIR ?= /usr/share/man
+DOC_DIR ?= /usr/share/doc
 
-all: .ksh .awk .sed .file .utils .sulogin .kmodule .mergedirs .man
+CFLAGS += -std=c99 -D_GNU_SOURCE -Wall -pedantic
 
-.compat:
-	cd compat; $(MAKE)
+INSTALL = install -v
 
-.lib:
-	cd lib; $(MAKE)
+SRCS = $(wildcard *.c)
+OBJECTS = $(SRCS:.c=.o)
+HEADERS = $(wildcard *.h)
+PROGS = init poweroff reboot suspend cttyhack syslogd klogd depmod modprobe \
+        devd losetup mount umount
 
-.ksh: .compat
-	cd ksh; $(MAKE)
+all: $(PROGS)
 
-.awk: .compat
-	cd awk; $(MAKE)
+%.o: %.c $(HEADERS)
+	$(CC) -c -o $@ $< $(CFLAGS)
 
-.sed: .compat
-	cd sed; $(MAKE)
+init: init.o
+	$(CC) -o $@ $^ $(LDFLAGS)
 
-.file: .compat
-	cd file; $(MAKE)
+poweroff: poweroff.o
+	$(CC) -o $@ $^ $(LDFLAGS)
 
-.utils: .lib
-	cd utils; $(MAKE)
+reboot: reboot.o
+	$(CC) -o $@ $^ $(LDFLAGS)
 
-.kmodule: .lib
-	cd kmodule; $(MAKE)
+suspend: suspend.o
+	$(CC) -o $@ $^ $(LDFLAGS)
 
-.sulogin: .lib
-	cd sulogin; $(MAKE)
+cttyhack: cttyhack.o
+	$(CC) -o $@ $^ $(LDFLAGS)
 
-.mergedirs: .lib
-	cd mergedirs; $(MAKE)
+syslogd: daemon.o syslogd.o
+	$(CC) -o $@ $^ $(LDFLAGS)
 
-.man:
-	cd man; $(MAMKE)
+klogd: daemon.o klogd.o
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+depmod: daemon.o module.o find.o cache.o depmod.o
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+modprobe: module.o modprobe.o
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+devd: daemon.o find.o devd.o
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+losetup: losetup.o
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+mount: mount.o
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+umount: umount.o
+	$(CC) -o $@ $^ $(LDFLAGS)
 
 install: all
-	$(INSTALL) -D -d -m 755 $(DESTDIR)/$(BIN_DIR)
-	$(INSTALL) -D -d -m 755 $(DESTDIR)/$(MAN_DIR)/man1
-	$(INSTALL) -D -d -m 755 $(DESTDIR)/$(CONF_DIR)
-	$(INSTALL) -D -d -m 755 $(DESTDIR)/$(DOC_DIR)
-	cd man; $(MAKE) install
-	cd mergedirs; $(MAKE) install
-	cd kmodule; $(MAKE) install
-	cd sulogin; $(MAKE) install
-	cd utils; $(MAKE) install
-	cd file; $(MAKE) install
-	cd sed; $(MAKE) install
-	cd awk; $(MAKE) install
-	cd ksh; $(MAKE) install
-	cd compat; $(MAKE) install
-	$(INSTALL) -m 644 README $(DESTDIR)/$(DOC_DIR)/README
-	$(INSTALL) -m 644 AUTHORS $(DESTDIR)/$(DOC_DIR)/AUTHORS
-	$(INSTALL) -m 644 COPYING $(DESTDIR)/$(DOC_DIR)/COPYING
+	$(INSTALL) -D -m 755 init $(DESTDIR)/$(SBIN_DIR)/init
+	$(INSTALL) -D -m 755 poweroff $(DESTDIR)/$(SBIN_DIR)/poweroff
+	$(INSTALL) -D -m 755 reboot $(DESTDIR)/$(SBIN_DIR)/reboot
+	$(INSTALL) -D -m 755 cttyhack $(DESTDIR)/$(SBIN_DIR)/cttyhack
+	$(INSTALL) -D -m 755 syslogd $(DESTDIR)/$(SBIN_DIR)/syslogd
+	$(INSTALL) -D -m 755 klogd $(DESTDIR)/$(SBIN_DIR)/klogd
+	$(INSTALL) -D -m 755 depmod $(DESTDIR)/$(SBIN_DIR)/depmod
+	$(INSTALL) -D -m 755 modprobe $(DESTDIR)/$(SBIN_DIR)/modprobe
+	$(INSTALL) -D -m 755 devd $(DESTDIR)/$(SBIN_DIR)/devd
+	$(INSTALL) -D -m 755 losetup $(DESTDIR)/$(SBIN_DIR)/losetup
+	$(INSTALL) -D -m 755 mount $(DESTDIR)/$(BIN_DIR)/mount
+	$(INSTALL) -D -m 755 umount $(DESTDIR)/$(BIN_DIR)/umount
+
+	$(INSTALL) -D -m 644 init.8 $(DESTDIR)/$(MAN_DIR)/man8/init.8
+	$(INSTALL) -D -m 644 poweroff.8 $(DESTDIR)/$(MAN_DIR)/man8/poweroff.8
+	$(INSTALL) -D -m 644 reboot.8 $(DESTDIR)/$(MAN_DIR)/man8/reboot.8
+	$(INSTALL) -D -m 644 cttyhack.1 $(DESTDIR)/$(MAN_DIR)/man1/cttyhack.1
+	$(INSTALL) -D -m 644 syslogd.8 $(DESTDIR)/$(MAN_DIR)/man8/syslogd.8
+	$(INSTALL) -D -m 644 klogd.8 $(DESTDIR)/$(MAN_DIR)/man8/klogd.8
+	$(INSTALL) -D -m 644 depmod.8 $(DESTDIR)/$(MAN_DIR)/man8/depmod.8
+	$(INSTALL) -D -m 644 modprobe.8 $(DESTDIR)/$(MAN_DIR)/man8/modprobe.8
+	$(INSTALL) -D -m 644 devd.8 $(DESTDIR)/$(MAN_DIR)/man8/devd.8
+	$(INSTALL) -D -m 644 losetup.8 $(DESTDIR)/$(MAN_DIR)/man8/losetup.8
+	$(INSTALL) -D -m 644 mount.8 $(DESTDIR)/$(MAN_DIR)/man8/mount.8
+	$(INSTALL) -D -m 644 umount.8 $(DESTDIR)/$(MAN_DIR)/man8/umount.8
+
+	$(INSTALL) -D -m 644 README $(DESTDIR)/$(DOC_DIR)/lazy-utils/README
+	$(INSTALL) -m 644 AUTHORS $(DESTDIR)/$(DOC_DIR)/lazy-utils/AUTHORS
+	$(INSTALL) -m 644 COPYING $(DESTDIR)/$(DOC_DIR)/lazy-utils/COPYING
 
 clean:
-	cd man; $(MAKE) clean
-	cd mergedirs; $(MAKE) clean
-	cd sulogin; $(MAKE) clean
-	cd utils; $(MAKE) clean
-	cd lib; $(MAKE) clean
-	cd file; $(MAKE) clean
-	cd sed; $(MAKE) clean
-	cd awk; $(MAKE) clean
-	cd ksh; $(MAKE) clean
-	cd compat; $(MAKE) clean
+	rm -f $(PROGS) $(OBJECTS)
