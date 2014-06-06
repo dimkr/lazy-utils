@@ -31,6 +31,10 @@ bool find_all(const char *directory,
 	/* the return value */
 	bool result = false;
 
+	assert(NULL != directory);
+	assert(NULL != pattern);
+	assert(NULL != callback);
+
 	/* open the directory */
 	handle = opendir(directory);
 	if (NULL == handle) {

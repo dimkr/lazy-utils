@@ -7,15 +7,16 @@
 #include <linux/loop.h>
 #include <string.h>
 #include <unistd.h>
+#include <assert.h>
 
 #include "common.h"
 
 /* the usage message */
 #define USAGE "Usage: losetup [-d] DEVICE [FILE]\n"
 
-int _associate(const char *device_path,
-               const char *file_path,
-               const int flags) {
+static int _associate(const char *device_path,
+                      const char *file_path,
+                      const int flags) {
 	/* the loopback device information */
 	struct loop_info info = {0};
 
@@ -27,6 +28,9 @@ int _associate(const char *device_path,
 
 	/* the return value */
 	int result = EXIT_FAILURE;
+
+	assert(NULL != device_path);
+	assert(NULL != file_path);
 
 	/* open the file; if the file resides on a read-only file system, open it in
 	 * read-only mode */
@@ -54,8 +58,7 @@ int _associate(const char *device_path,
 	}
 
 	/* associate the loopback device with the file */
-	(void) memset(&info, 0, sizeof(info));
-	(void) strcpy((char *) &info.lo_name, file_path);
+	(void) strcpy(info.lo_name, file_path);
 	if (0 != ioctl(device, LOOP_SET_FD, fd)) {
 		goto close_device;
 	}
@@ -81,12 +84,14 @@ end:
 	return result;
 }
 
-int _unassociate(const char *device_path) {
+static int _unassociate(const char *device_path) {
 	/* the loopback device descriptor */
 	int device = (-1);
 
 	/* the return value */
 	int result = EXIT_FAILURE;
+
+	assert(NULL != device_path);
 
 	/* open the loopback device */
 	device = open(device_path, O_RDONLY);

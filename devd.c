@@ -63,7 +63,7 @@ static bool _handle_existing_device(const char *path, void *unused) {
 	alias[length - 1] = '\0';
 
 	/* run modprobe */
-	switch (fork()) {
+	switch (daemon_fork()) {
 		case 0:
 			(void) execlp("modprobe", "modprobe", alias, (char *) NULL);
 			exit(EXIT_FAILURE);
@@ -151,7 +151,7 @@ static bool _handle_new_device(unsigned char *message, const size_t len) {
 
 	/* if a device was added, run modprobe */
 	if (0 == strcmp("add", action)) {
-		switch (fork()) {
+		switch (daemon_fork()) {
 			case 0:
 				(void) execlp("modprobe", "modprobe", name, (char *) NULL);
 				exit(EXIT_FAILURE);
@@ -235,13 +235,13 @@ int main(int argc, char *argv[]) {
 	do {
 		/* wait for a message */
 		if (false == daemon_wait(&daemon_data, &received_signal)) {
-			goto close_log;
+			break;
 		}
 
 		/* if the received signal is a termination one, report success */
 		if (SIGTERM == received_signal) {
 			exit_code = EXIT_SUCCESS;
-			goto close_log;
+			break;
 		}
 
 		/* receive a message */

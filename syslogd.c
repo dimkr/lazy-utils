@@ -85,13 +85,13 @@ int main(int argc, char *argv[]) {
 	do {
 		/* wait for a message */
 		if (false == daemon_wait(&daemon_data, &received_signal)) {
-			goto close_unix;
+			break;
 		}
 
 		/* if the received signal is a termination one, report success */
 		if (SIGTERM == received_signal) {
 			exit_code = EXIT_SUCCESS;
-			goto close_unix;
+			break;
 		}
 
 		/* receive a log message */
@@ -115,7 +115,7 @@ int main(int argc, char *argv[]) {
 
 		/* write the message to the log */
 		if (size != write(log_file, message, (size_t) size)) {
-			goto close_unix;
+			break;
 		}
 	} while (1);
 

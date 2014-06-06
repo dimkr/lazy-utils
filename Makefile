@@ -22,7 +22,7 @@ all: $(PROGS)
 %.o: %.c $(HEADERS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-init: init.o
+init: daemon.o init.o
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 poweroff: poweroff.o

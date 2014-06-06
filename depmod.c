@@ -5,7 +5,6 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <sys/un.h>
-#include <assert.h>
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
@@ -98,19 +97,19 @@ int main(int argc, char *argv[]) {
 	do {
 		/* wait for a message */
 		if (false == daemon_wait(&daemon_data, &received_signal)) {
-			goto free_cache;
+			break;
 		}
 
 		/* if the received signal is a termination one, report success */
 		if (SIGTERM == received_signal) {
 			exit_code = EXIT_SUCCESS;
-			goto free_cache;
+			break;
 		}
 
 		/* accept a client */
 		client_socket = accept(daemon_data.fd, NULL, NULL);
 		if (-1 == client_socket) {
-			goto free_cache;
+			break;
 		}
 
 		/* receive a module alias */

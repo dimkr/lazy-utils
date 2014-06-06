@@ -8,6 +8,7 @@
 #include <sys/reboot.h>
 
 #include "common.h"
+#include "daemon.h"
 
 /* the init script path */
 #define INIT_SCRIPT_PATH "/etc/rc.d/rc.sysinit"
@@ -15,40 +16,23 @@
 /* the shutdown script path */
 #define SHUTDOWN_SCRIPT_PATH "/etc/rc.d/rc.shutdown"
 
-void _signal_handler(int type, siginfo_t *info, void *context) {
-	(void) waitpid(info->si_pid, NULL, WNOHANG);
-}
-
 bool _run_script(const char *path, pid_t *pid) {
 	/* the return value */
 	bool is_success = false;
 
 	/* the process ID */
-	pid_t parent_pid;
-
-	/* the process signal mask */
-	sigset_t signal_mask;
+	pid_t parent_pid = (-1);
 
 	/* get the process ID */
 	parent_pid = getpid();
 
-	/* empty the signal mask */
-	if (-1 == sigemptyset(&signal_mask)) {
-		goto end;
-	}
-
 	/* create a child process */
-	*pid = fork();
+	*pid = daemon_fork();
 	switch (*pid) {
 		case (-1):
 			goto end;
 
-		case (0):
-			/* reset the child process signal mask */
-			if (-1 == sigprocmask(SIG_SETMASK, &signal_mask, NULL)) {
-				goto end;
-			}
-
+		case 0:
 			/* in the child process, run the init script */
 			(void) execl(path, path, (char *) NULL);
 
@@ -74,20 +58,20 @@ int main() {
 	struct sigaction signal_action;
 
 	/* a signal mask used for waiting */
-	sigset_t signal_mask;
+	sigset_t signal_mask = {{0}};
 
 	/* the init script PID */
-	pid_t script_pid;
+	pid_t script_pid = -1;
 
 	/* the signal received */
-	siginfo_t received_signal;
+	siginfo_t received_signal = {0};
 
 	/* the command passed to reboot() */
-	int reboot_command;
+	int reboot_command = 0;
 
-	/* assign a signal handler for SIGCHLD, which destroys zombie processes */
-	signal_action.sa_flags = SA_SIGINFO;
-	signal_action.sa_sigaction = _signal_handler;
+	/* prevent child processes from becoming zombie processes */
+	signal_action.sa_flags = SA_NOCLDWAIT | SA_NOCLDSTOP;
+	signal_action.sa_sigaction = NULL;
 	if (-1 == sigemptyset(&signal_action.sa_mask)) {
 		goto end;
 	}

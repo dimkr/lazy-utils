@@ -159,3 +159,27 @@ bool daemon_wait(const daemon_t *daemon, int *received_signal) {
 
 	return true;
 }
+
+pid_t daemon_fork() {
+	/* a signal mask */
+	sigset_t signal_mask = {{0}};
+
+	/* the return value */
+	pid_t pid = (-1);
+
+	/* empty the signal mask */
+	if (-1 == sigemptyset(&signal_mask)) {
+		return (-1);
+	}
+
+	/* spawn a child process */
+	pid = fork();
+	if (0 == pid) {
+		/* reset the child process signal mask */
+		if (-1 == sigprocmask(SIG_SETMASK, &signal_mask, NULL)) {
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	return pid;
+}
