@@ -15,7 +15,7 @@ SRCS = $(wildcard *.c)
 OBJECTS = $(SRCS:.c=.o)
 HEADERS = $(wildcard *.h)
 PROGS = init poweroff reboot suspend cttyhack syslogd klogd depmod modprobe \
-        devd losetup mount umount
+        devd losetup mount umount tftpd
 
 all: $(PROGS)
 
@@ -59,6 +59,9 @@ mount: mount.o
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 umount: umount.o
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+tftpd: daemon.o tftpd.o
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 install: all

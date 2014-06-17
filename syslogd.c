@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	/* initialize the daemon */
-	if (false == daemon_init(&daemon_data)) {
+	if (false == daemon_init(&daemon_data, DAEMON_WORKING_DIRECTORY)) {
 		goto close_unix;
 	}
 

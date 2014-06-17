@@ -7,12 +7,12 @@
 
 #include "daemon.h"
 
-bool daemon_daemonize() {
+bool daemon_daemonize(const char *working_directory) {
 	/* the return value */
 	bool result = false;
 
 	/* change the process working directory */
-	if (-1 == chdir(DAEMON_WORKING_DIRETORY)) {
+	if (-1 == chdir(working_directory)) {
 		goto end;
 	}
 
@@ -57,7 +57,7 @@ bool daemon_daemonize() {
 	if (-1 == close(STDOUT_FILENO)) {
  		goto end;
 	}
-	if (STDOUT_FILENO != dup(STDIN_FILENO)) {
+	if (-1 == open(_PATH_DEVNULL, O_WRONLY)) {
 		goto end;
 	}
 	if (-1 == close(STDERR_FILENO)) {
@@ -77,7 +77,7 @@ end:
 	return result;
 }
 
-bool daemon_init(daemon_t *daemon) {
+bool daemon_init(daemon_t *daemon, const char *working_directory) {
 	/* a signal action */
 	struct sigaction signal_action = {{0}};
 
@@ -94,7 +94,7 @@ bool daemon_init(daemon_t *daemon) {
 	}
 
 	/* daemonize */
-	if (false == daemon_daemonize()) {
+	if (false == daemon_daemonize(working_directory)) {
 		goto end;
 	}
 

@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
 	openlog("kernel", LOG_NDELAY, LOG_KERN);
 
 	/* daemonize */
-	if (false == daemon_daemonize()) {
+	if (false == daemon_daemonize(DAEMON_WORKING_DIRECTORY)) {
 		goto close_log;
 	}
 
