@@ -28,7 +28,7 @@
 #define LISTENING_PORT "69"
 
 /* the server root */
-#define SERVER_ROOT "/srv/ftp"
+#define SERVER_ROOT "/srv/tftp"
 
 /* the minimum size of a request */
 #define MIN_REQUEST_SIZE (sizeof(uint16_t) + \
@@ -402,6 +402,7 @@ static bool _handle_rrq(const int s,
 
 			case EPERM:
 			case EACCES:
+			case EROFS:
 				_send_error(s, ERROR_ACCESS_VIOLATION, address, address_size);
 		}
 
@@ -628,7 +629,7 @@ int main(int argc, char *argv[]) {
 	/* resolve the local address */
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_DGRAM;
-	hints.ai_flags = AI_ADDRCONFIG | AI_V4MAPPED;
+	hints.ai_flags = AI_PASSIVE | AI_ADDRCONFIG | AI_V4MAPPED;
 	if (0 != getaddrinfo(NULL, LISTENING_PORT, &hints, &address)) {
 		goto end;
 	}

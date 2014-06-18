@@ -77,6 +77,7 @@ install: all
 	$(INSTALL) -D -m 755 losetup $(DESTDIR)/$(SBIN_DIR)/losetup
 	$(INSTALL) -D -m 755 mount $(DESTDIR)/$(BIN_DIR)/mount
 	$(INSTALL) -D -m 755 umount $(DESTDIR)/$(BIN_DIR)/umount
+	$(INSTALL) -D -m 755 tftpd $(DESTDIR)/$(SBIN_DIR)/tftpd
 
 	$(INSTALL) -D -m 644 init.8 $(DESTDIR)/$(MAN_DIR)/man8/init.8
 	$(INSTALL) -D -m 644 poweroff.8 $(DESTDIR)/$(MAN_DIR)/man8/poweroff.8
@@ -90,10 +91,13 @@ install: all
 	$(INSTALL) -D -m 644 losetup.8 $(DESTDIR)/$(MAN_DIR)/man8/losetup.8
 	$(INSTALL) -D -m 644 mount.8 $(DESTDIR)/$(MAN_DIR)/man8/mount.8
 	$(INSTALL) -D -m 644 umount.8 $(DESTDIR)/$(MAN_DIR)/man8/umount.8
+	$(INSTALL) -D -m 644 tftpd.8 $(DESTDIR)/$(MAN_DIR)/man8/tftpd.8
 
 	$(INSTALL) -D -m 644 README $(DESTDIR)/$(DOC_DIR)/lazy-utils/README
 	$(INSTALL) -m 644 AUTHORS $(DESTDIR)/$(DOC_DIR)/lazy-utils/AUTHORS
 	$(INSTALL) -m 644 COPYING $(DESTDIR)/$(DOC_DIR)/lazy-utils/COPYING
+
+	$(INSTALL) -m 755 -d $(DESTDIR)/srv/tftp
 
 clean:
 	rm -f $(PROGS) $(OBJECTS)
