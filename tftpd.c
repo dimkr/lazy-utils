@@ -43,6 +43,18 @@
 /* socket timeout, in seconds */
 #define SOCKET_TIMEOUT (5)
 
+/* the lowest possible TID */
+#define MIN_TID (6996)
+
+/* the maximum number of clients connected at once */
+#define MAX_CLIENTS (4)
+
+/* a random port */
+#define RANDOM_PORT htons(MIN_TID + (rand() % MAX_CLIENTS))
+
+/* the maximum number of random ports checked for each client */
+#define MAX_TID_ATTEMPTS (2)
+
 /* packet types (opcodes) */
 enum packet_types {
 	PACKET_TYPE_RRQ   = 1,
@@ -183,6 +195,7 @@ static void _log_request(const char *type,
                          const char *path,
                          const struct sockaddr *address,
                          const socklen_t size) {
+	/* the client address, in textual form */
 	char textual[1 + INET6_ADDRSTRLEN] = {'\0'};
 
 	assert(NULL != type);
@@ -480,6 +493,53 @@ end:
 	return result;
 }
 
+static bool _pick_tid(const int s,
+                      const struct sockaddr *local_address,
+                      const socklen_t address_size) {
+	/* the number of attempts so far*/
+	unsigned int attempts = 0;
+
+	assert(STDERR_FILENO < s);
+	assert(NULL != local_address);
+	assert(0 < address_size);
+
+	/* initialize the random number seed - this should be done for each client,
+	 * to improve the TID randomness */
+	srand((unsigned int) time(NULL));
+
+	/* try to find a free port, with a limit of MAX_TID_ATTEMPTS attempts */
+	switch (local_address->sa_family) {
+		case AF_INET:
+			for ( ; MAX_TID_ATTEMPTS > attempts; ++attempts) {
+				((struct sockaddr_in *) local_address)->sin_port = RANDOM_PORT;
+				if (0 == bind(s, local_address, address_size)) {
+					return true;
+				} else {
+					if (EADDRINUSE != errno) {
+						return false;
+					}
+				}
+			}
+			break;
+
+		case AF_INET6:
+			for ( ; MAX_TID_ATTEMPTS > attempts; ++attempts) {
+				((struct sockaddr_in6 *) local_address)->sin6_port = \
+				                                                    RANDOM_PORT;
+				if (0 == bind(s, local_address, address_size)) {
+					return true;
+				} else {
+					if (EADDRINUSE != errno) {
+						return false;
+					}
+				}
+			}
+			break;
+	}
+
+	return false;
+}
+
 static bool _handle_request(const char *path,
                             const uint16_t opcode,
                             const struct addrinfo *local_address,
@@ -490,9 +550,6 @@ static bool _handle_request(const char *path,
 
 	/* the source address */
 	struct sockaddr source = {0};
-
-	/* the source port */
-	short port = 0;
 
 	/* the return value */
 	bool result = false;
@@ -510,12 +567,12 @@ static bool _handle_request(const char *path,
 	/* get the transaction ID */
 	switch (client_address->sa_family) {
 		case AF_INET:
-		 	tid = ((struct sockaddr_in *) client_address)->sin_port;
-		 	break;
+			tid = ((struct sockaddr_in *) client_address)->sin_port;
+			break;
 
 		case AF_INET6:
-		 	tid = ((struct sockaddr_in6 *) client_address)->sin6_port;
-		 	break;
+			tid = ((struct sockaddr_in6 *) client_address)->sin6_port;
+			break;
 
 		default:
 			goto end;
@@ -534,25 +591,10 @@ static bool _handle_request(const char *path,
 		goto end;
 	}
 
-	/* generate a random source port */
+	/* pick a unique source port and bind the socket on it */
 	(void) memcpy(&source, local_address->ai_addr, local_address->ai_addrlen);
-	port = htons(1 + (rand() % USHRT_MAX));
-	switch (local_address->ai_family) {
-		case AF_INET:
-		 	((struct sockaddr_in *) &source)->sin_port = port;
-		 	break;
-
-		case AF_INET6:
-		 	((struct sockaddr_in6 *) &source)->sin6_port = port;
-		 	break;
-
-		default:
-			goto close_socket;
-	}
-
-	/* bind the socket */
-	if (-1 == bind(s, &source, local_address->ai_addrlen)) {
-		goto end;
+	if (false == _pick_tid(s, &source, local_address->ai_addrlen)) {
+		goto close_socket;
 	}
 
 	/* handle the request */
@@ -659,9 +701,6 @@ int main(int argc, char *argv[]) {
 	if (false == daemon_init(&daemon_data, SERVER_ROOT)) {
 		goto close_log;
 	}
-
-	/* initialize the random number seed */
-	srand((unsigned int) time(NULL));
 
 	do {
 		/* wait for a request */
