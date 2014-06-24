@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <paths.h>
+#include <sched.h>
 
 #include "daemon.h"
 
@@ -64,6 +65,12 @@ bool daemon_daemonize(const char *working_directory) {
 		goto end;
 	}
 	if (STDERR_FILENO != dup(STDIN_FILENO)) {
+		goto end;
+	}
+
+	/* make the daemon mount namespace private, so it's impossible to replace
+	 * files it tries to access by mounting a file system */
+	if (-1 == unshare(CLONE_NEWNS)) {
 		goto end;
 	}
 

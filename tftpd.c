@@ -112,7 +112,7 @@ enum errors {
 
 static const unsigned char g_file_not_found[] = {
 	0, PACKET_TYPE_ERROR, 0, ERROR_FILE_NOT_FOUND, 'F', 'i', 'l', 'e', ' ', 'n',
-	'o', 't',' ' , 'f', 'o', 'u', 'n', 'd', '\0'
+	'o', 't', ' ' , 'f', 'o', 'u', 'n', 'd', '\0'
 };
 
 static const unsigned char g_access_violation[] = {
