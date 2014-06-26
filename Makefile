@@ -7,7 +7,7 @@ SBIN_DIR ?= /sbin
 MAN_DIR ?= /usr/share/man
 DOC_DIR ?= /usr/share/doc
 
-CFLAGS += -std=c99 -D_GNU_SOURCE -Wall -pedantic
+CFLAGS += -std=c99 -D_GNU_SOURCE -Wall -pedantic -Werror=uninitialized
 
 INSTALL = install -v
 
@@ -15,7 +15,7 @@ SRCS = $(wildcard *.c)
 OBJECTS = $(SRCS:.c=.o)
 HEADERS = $(wildcard *.h)
 PROGS = init poweroff reboot suspend cttyhack syslogd klogd depmod modprobe \
-        devd losetup mount umount tftpd
+        devd losetup mount umount tftpd odus
 
 all: $(PROGS)
 
@@ -64,6 +64,9 @@ umount: umount.o
 tftpd: daemon.o tftpd.o
 	$(CC) -o $@ $^ $(LDFLAGS)
 
+odus: odus.o
+	$(CC) -o $@ $^ $(LDFLAGS)
+
 install: all
 	$(INSTALL) -D -m 755 init $(DESTDIR)/$(SBIN_DIR)/init
 	$(INSTALL) -D -m 755 poweroff $(DESTDIR)/$(SBIN_DIR)/poweroff
@@ -78,6 +81,7 @@ install: all
 	$(INSTALL) -D -m 755 mount $(DESTDIR)/$(BIN_DIR)/mount
 	$(INSTALL) -D -m 755 umount $(DESTDIR)/$(BIN_DIR)/umount
 	$(INSTALL) -D -m 755 tftpd $(DESTDIR)/$(SBIN_DIR)/tftpd
+	$(INSTALL) -D -m 755 odus $(DESTDIR)/$(BIN_DIR)/odus
 
 	$(INSTALL) -D -m 644 init.8 $(DESTDIR)/$(MAN_DIR)/man8/init.8
 	$(INSTALL) -D -m 644 poweroff.8 $(DESTDIR)/$(MAN_DIR)/man8/poweroff.8
@@ -92,6 +96,7 @@ install: all
 	$(INSTALL) -D -m 644 mount.8 $(DESTDIR)/$(MAN_DIR)/man8/mount.8
 	$(INSTALL) -D -m 644 umount.8 $(DESTDIR)/$(MAN_DIR)/man8/umount.8
 	$(INSTALL) -D -m 644 tftpd.8 $(DESTDIR)/$(MAN_DIR)/man8/tftpd.8
+	$(INSTALL) -D -m 644 odus.8 $(DESTDIR)/$(MAN_DIR)/man8/odus.8
 
 	$(INSTALL) -D -m 644 README $(DESTDIR)/$(DOC_DIR)/lazy-utils/README
 	$(INSTALL) -m 644 AUTHORS $(DESTDIR)/$(DOC_DIR)/lazy-utils/AUTHORS
