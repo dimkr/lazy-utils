@@ -6,14 +6,18 @@
 
 #	define DAEMON_WORKING_DIRECTORY "/run"
 
+#	define DAEMON_USER "nobody"
+
 typedef struct {
 	sigset_t signal_mask;
 	int fd;
 	int io_signal;
 } daemon_t;
 
-bool daemon_init(daemon_t *daemon, const char *working_directory);
-bool daemon_daemonize(const char *working_directory);
+bool daemon_init(daemon_t *daemon,
+                 const char *working_directory,
+                 const char *user);
+bool daemon_daemonize(const char *working_directory, const char *user);
 bool daemon_wait(const daemon_t *daemon, int *received_signal);
 pid_t daemon_fork();
 

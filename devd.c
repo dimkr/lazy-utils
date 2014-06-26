@@ -225,7 +225,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	/* initialize the daemon */
-	if (false == daemon_init(&daemon_data, DAEMON_WORKING_DIRECTORY)) {
+	if (false == daemon_init(&daemon_data, DAEMON_WORKING_DIRECTORY, NULL)) {
 		goto close_log;
 	}
 

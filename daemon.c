@@ -5,12 +5,27 @@
 #include <stdlib.h>
 #include <paths.h>
 #include <sched.h>
+#include <pwd.h>
+#include <assert.h>
 
 #include "daemon.h"
 
-bool daemon_daemonize(const char *working_directory) {
+bool daemon_daemonize(const char *working_directory, const char *user) {
 	/* the return value */
 	bool result = false;
+
+	/* the process owner */
+	struct passwd *user_info = NULL;
+
+	assert(NULL != working_directory);
+
+	/* get the process owner ID */
+	if (NULL != user) {
+		user_info = getpwnam(user);
+		if (NULL == user_info) {
+			goto end;
+		}
+	}
 
 	/* change the process working directory */
 	if (-1 == chdir(working_directory)) {
@@ -46,6 +61,22 @@ bool daemon_daemonize(const char *working_directory) {
 			exit(EXIT_SUCCESS);
 	}
 
+	/* make the daemon mount namespace private, so it's impossible to replace
+	 * files it tries to access by mounting a file system */
+	if (-1 == unshare(CLONE_NEWNS)) {
+		goto end;
+	}
+
+	/* drop the process permissions, by setting its owner */
+	if (NULL != user_info) {
+		if (-1 == setuid(user_info->pw_uid)) {
+			goto end;
+		}
+		if (-1 == seteuid(user_info->pw_uid)) {
+			goto end;
+		}
+	}
+
 	/* replace the standard input pipe with /dev/null */
 	if (-1 == close(STDIN_FILENO)) {
 		goto end;
@@ -68,12 +99,6 @@ bool daemon_daemonize(const char *working_directory) {
 		goto end;
 	}
 
-	/* make the daemon mount namespace private, so it's impossible to replace
-	 * files it tries to access by mounting a file system */
-	if (-1 == unshare(CLONE_NEWNS)) {
-		goto end;
-	}
-
 	/* set the file permissions mask */
 	(void) umask(0);
 
@@ -84,7 +109,9 @@ end:
 	return result;
 }
 
-bool daemon_init(daemon_t *daemon, const char *working_directory) {
+bool daemon_init(daemon_t *daemon,
+                 const char *working_directory,
+                 const char *user) {
 	/* a signal action */
 	struct sigaction signal_action = {{0}};
 
@@ -94,6 +121,9 @@ bool daemon_init(daemon_t *daemon, const char *working_directory) {
 	/* the return value */
 	bool result = false;
 
+	assert(NULL != daemon);
+	assert(NULL != working_directory);
+
 	/* get the file descriptor flags */
 	flags = fcntl(daemon->fd, F_GETFL);
 	if (-1 == flags) {
@@ -101,7 +131,7 @@ bool daemon_init(daemon_t *daemon, const char *working_directory) {
 	}
 
 	/* daemonize */
-	if (false == daemon_daemonize(working_directory)) {
+	if (false == daemon_daemonize(working_directory, user)) {
 		goto end;
 	}
 
@@ -155,6 +185,9 @@ end:
 }
 
 bool daemon_wait(const daemon_t *daemon, int *received_signal) {
+	assert(NULL != daemon);
+	assert(NULL != received_signal);
+
 	if (0 != sigwait(&daemon->signal_mask, received_signal)) {
 		return false;
 	}

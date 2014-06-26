@@ -698,7 +698,7 @@ int main(int argc, char *argv[]) {
 	openlog("tftpd", LOG_NDELAY, LOG_DAEMON);
 
 	/* initialize the daemon */
-	if (false == daemon_init(&daemon_data, SERVER_ROOT)) {
+	if (false == daemon_init(&daemon_data, SERVER_ROOT, DAEMON_USER)) {
 		goto close_log;
 	}
 
