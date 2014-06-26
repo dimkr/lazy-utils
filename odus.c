@@ -58,6 +58,11 @@ int main(int argc, char *argv[]) {
 		goto end;
 	}
 
+	/* change the working directory to the user's home directory */
+	if (-1 == chdir(user->pw_dir)) {
+		goto end;
+	}
+
 	/* isolate the processes */
 	if (-1 == unshare(NAMESPACES)) {
 		goto end;
