@@ -17,7 +17,7 @@
 #define GROUP "someone"
 
 /* the flags argument of unshare() */
-#define NAMESPACES (CLONE_NEWIPC | CLONE_NEWNET | CLONE_NEWNS | CLONE_NEWUTS)
+#define NAMESPACES (CLONE_NEWIPC | CLONE_NEWNS | CLONE_NEWUTS)
 
 int main(int argc, char *argv[]) {
 	/* the user details */
