@@ -1,0 +1,21 @@
+.TH modprobed 8
+.SH NAME
+.B modprobed
+\- a kernel module loading server
+.SH SYNOPSIS
+.B modprobed
+.SH DESCRIPTION
+Receives kernel module loading requests, finds the most appropriate modules and
+loads them.
+.SH FILES
+.TP
+.B /run/modprobed.socket
+The socket requests are sent to
+.SH SIGNALS
+.TP
+.B SIGTERM
+Stops the process
+.SH "SEE ALSO"
+.B modprobe(8)
+.SH AUTHOR
+Dima Krasner (dima@dimakrasner.com)

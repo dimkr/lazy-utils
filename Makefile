@@ -14,7 +14,7 @@ INSTALL = install -v
 SRCS = $(wildcard *.c)
 OBJECTS = $(SRCS:.c=.o)
 HEADERS = $(wildcard *.h)
-PROGS = init poweroff reboot suspend cttyhack syslogd klogd depmod modprobe \
+PROGS = init poweroff reboot suspend cttyhack syslogd klogd modprobed modprobe \
         devd losetup mount umount tftpd odus
 
 all: $(PROGS)
@@ -43,7 +43,7 @@ syslogd: daemon.o syslogd.o
 klogd: daemon.o klogd.o
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-depmod: daemon.o module.o find.o cache.o depmod.o
+modprobed: daemon.o module.o find.o cache.o modprobed.o
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 modprobe: module.o modprobe.o
@@ -74,7 +74,7 @@ install: all
 	$(INSTALL) -D -m 755 cttyhack $(DESTDIR)/$(SBIN_DIR)/cttyhack
 	$(INSTALL) -D -m 755 syslogd $(DESTDIR)/$(SBIN_DIR)/syslogd
 	$(INSTALL) -D -m 755 klogd $(DESTDIR)/$(SBIN_DIR)/klogd
-	$(INSTALL) -D -m 755 depmod $(DESTDIR)/$(SBIN_DIR)/depmod
+	$(INSTALL) -D -m 755 modprobed $(DESTDIR)/$(SBIN_DIR)/modprobed
 	$(INSTALL) -D -m 755 modprobe $(DESTDIR)/$(SBIN_DIR)/modprobe
 	$(INSTALL) -D -m 755 devd $(DESTDIR)/$(SBIN_DIR)/devd
 	$(INSTALL) -D -m 755 losetup $(DESTDIR)/$(SBIN_DIR)/losetup
@@ -89,7 +89,7 @@ install: all
 	$(INSTALL) -D -m 644 cttyhack.1 $(DESTDIR)/$(MAN_DIR)/man1/cttyhack.1
 	$(INSTALL) -D -m 644 syslogd.8 $(DESTDIR)/$(MAN_DIR)/man8/syslogd.8
 	$(INSTALL) -D -m 644 klogd.8 $(DESTDIR)/$(MAN_DIR)/man8/klogd.8
-	$(INSTALL) -D -m 644 depmod.8 $(DESTDIR)/$(MAN_DIR)/man8/depmod.8
+	$(INSTALL) -D -m 644 modprobed.8 $(DESTDIR)/$(MAN_DIR)/man8/modprobed.8
 	$(INSTALL) -D -m 644 modprobe.8 $(DESTDIR)/$(MAN_DIR)/man8/modprobe.8
 	$(INSTALL) -D -m 644 devd.8 $(DESTDIR)/$(MAN_DIR)/man8/devd.8
 	$(INSTALL) -D -m 644 losetup.8 $(DESTDIR)/$(MAN_DIR)/man8/losetup.8
