@@ -11,7 +11,7 @@
 #include "daemon.h"
 
 /* the init script path */
-#define INIT_SCRIPT_PATH "/etc/rc.d/rc.sysinit"
+#define INIT_SCRIPT_PATH "/etc/rc.d/rc.initramfs"
 
 /* the shutdown script path */
 #define SHUTDOWN_SCRIPT_PATH "/etc/rc.d/rc.shutdown"
