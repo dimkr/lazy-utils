@@ -541,6 +541,7 @@ static bool _pick_tid(const int s,
 }
 
 static bool _handle_request(const char *path,
+                            const char *mode,
                             const uint16_t opcode,
                             const struct addrinfo *local_address,
                             const struct sockaddr *client_address,
@@ -594,6 +595,18 @@ static bool _handle_request(const char *path,
 	/* pick a unique source port and bind the socket on it */
 	(void) memcpy(&source, local_address->ai_addr, local_address->ai_addrlen);
 	if (false == _pick_tid(s, &source, local_address->ai_addrlen)) {
+		goto close_socket;
+	}
+
+	/* make sure the transfer mode is "octet" */
+	if (0 != strcmp("octet", mode)) {
+		_send_error(s, ERROR_ILLEGAL_OPERATION, client_address, address_size);
+		goto close_socket;
+	}
+
+	/* make sure the file doesn't contain a sub-director */
+	if (NULL != strchr(path, '/')) {
+		_send_error(s, ERROR_ACCESS_VIOLATION, client_address, address_size);
 		goto close_socket;
 	}
 
@@ -758,15 +771,6 @@ int main(int argc, char *argv[]) {
 		/* skip the null byte */
 		++mode;
 
-		/* make sure the transfer mode is "octet" */
-		if (0 != strcmp("octet", mode)) {
-			_send_error(daemon_data.fd,
-			            ERROR_ILLEGAL_OPERATION,
-			            &client_address,
-			            address_size);
-			continue;
-		}
-
 		/* spawn a child process */
 		pid = fork();
 		switch (pid) {
@@ -774,7 +778,9 @@ int main(int argc, char *argv[]) {
 				goto close_log;
 
 			case 0:
+				/* handle the request */
 				if (false == _handle_request(path,
+				                             mode,
 				                             request.header.opcode,
 				                             address,
 				                             &client_address,
@@ -783,7 +789,6 @@ int main(int argc, char *argv[]) {
 				}
 				goto success;
 		}
-
 	} while (1);
 
 success:
