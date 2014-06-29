@@ -67,7 +67,7 @@ bool module_open(module_t *module, const char *path) {
 	                        MAP_PRIVATE,
 	                        module->fd,
 	                        0);
-	if (NULL == module->contents) {
+	if (MAP_FAILED == module->contents) {
 		goto close_module;
 	}
 
