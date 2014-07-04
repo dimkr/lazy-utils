@@ -71,6 +71,7 @@ install: all
 	$(INSTALL) -D -m 755 init $(DESTDIR)/$(SBIN_DIR)/init
 	$(INSTALL) -D -m 755 poweroff $(DESTDIR)/$(SBIN_DIR)/poweroff
 	$(INSTALL) -D -m 755 reboot $(DESTDIR)/$(SBIN_DIR)/reboot
+	$(INSTALL) -D -m 755 suspend $(DESTDIR)/$(SBIN_DIR)/suspend
 	$(INSTALL) -D -m 755 cttyhack $(DESTDIR)/$(SBIN_DIR)/cttyhack
 	$(INSTALL) -D -m 755 syslogd $(DESTDIR)/$(SBIN_DIR)/syslogd
 	$(INSTALL) -D -m 755 klogd $(DESTDIR)/$(SBIN_DIR)/klogd
@@ -86,6 +87,7 @@ install: all
 	$(INSTALL) -D -m 644 init.8 $(DESTDIR)/$(MAN_DIR)/man8/init.8
 	$(INSTALL) -D -m 644 poweroff.8 $(DESTDIR)/$(MAN_DIR)/man8/poweroff.8
 	$(INSTALL) -D -m 644 reboot.8 $(DESTDIR)/$(MAN_DIR)/man8/reboot.8
+	$(INSTALL) -D -m 644 suspend.8 $(DESTDIR)/$(MAN_DIR)/man8/suspend.8
 	$(INSTALL) -D -m 644 cttyhack.1 $(DESTDIR)/$(MAN_DIR)/man1/cttyhack.1
 	$(INSTALL) -D -m 644 syslogd.8 $(DESTDIR)/$(MAN_DIR)/man8/syslogd.8
 	$(INSTALL) -D -m 644 klogd.8 $(DESTDIR)/$(MAN_DIR)/man8/klogd.8
