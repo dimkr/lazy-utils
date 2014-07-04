@@ -17,7 +17,6 @@
 
 /* the namespace flags of clone() */
 #define NAMESPACES (CLONE_NEWIPC | \
-                    CLONE_NEWNET | \
                     CLONE_NEWNS | \
                     CLONE_NEWPID | \
                     CLONE_NEWUTS | \
