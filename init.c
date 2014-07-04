@@ -55,7 +55,7 @@ int main() {
 	int exit_code = EXIT_FAILURE;
 
 	/* a signal action */
-	struct sigaction signal_action;
+	struct sigaction signal_action = {{0}};
 
 	/* a signal mask used for waiting */
 	sigset_t signal_mask = {{0}};
