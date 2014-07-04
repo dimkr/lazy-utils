@@ -9,6 +9,7 @@
 #include <sys/prctl.h>
 #include <string.h>
 #include <stdbool.h>
+#include <assert.h>
 
 #include "common.h"
 
@@ -97,6 +98,9 @@ static int _init(void *argv) {
 	/* the init script PID */
 	pid_t script_pid = (-1);
 
+	assert(NULL != argv);
+	assert(NULL != ((char **) argv)[2]);
+
 	/* block SIGCHLD, SIGUSR1 and SIGUSR2 signals */
 	if (-1 == sigemptyset(&signal_mask)) {
 		goto end;
@@ -117,15 +121,22 @@ static int _init(void *argv) {
 	/* re-unmount /proc, so it doesn't mention processes running outside of the
 	 * sandbox */
 	if (-1 == umount("/proc")) {
-		if ((EINVAL != errno) && (ENOENT != errno)) {
-			goto end;
-		}
-	} else {
-		if (-1 == mount("proc", "/proc", "proc", 0, NULL)) {
-			goto end;
+		switch (errno) {
+			case EINVAL:
+				break;
+
+			case ENOENT:
+				goto run_script;
+
+			default:
+				goto end;
 		}
 	}
+	if (-1 == mount("proc", "/proc", "proc", 0, NULL)) {
+		goto end;
+	}
 
+run_script:
 	/* spawn a child process, for the init script */
 	script_pid = fork();
 	switch (script_pid) {
@@ -191,6 +202,12 @@ terminate_script:
 				break;
 		}
 	} while (EXIT_FAILURE == exit_code);
+
+	/* terminate all the processes inside the sandbox */
+	if (0 == kill(-1, SIGTERM)) {
+		(void) sleep(2);
+		(void) kill(-1, SIGKILL);
+	}
 
 end:
 	return exit_code;
