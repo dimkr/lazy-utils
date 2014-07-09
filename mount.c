@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <linux/magic.h>
+#include <assert.h>
 
 #include "common.h"
 
@@ -58,6 +59,9 @@ static const fs_magic_t g_file_systems[] = {
 };
 
 static bool _parse_options(const char *options, int *flags, char **data) {
+	/* the options string size */
+	size_t size = 0;
+
 	/* a loop index */
 	unsigned int i = 0;
 
@@ -67,27 +71,36 @@ static bool _parse_options(const char *options, int *flags, char **data) {
 	/* a flag which indiciates whether an option is recognized */
 	bool is_found = false;
 
+	/* a copy of the options string */
+	char *copy = NULL;
+
 	/* a single option */
 	char *option = NULL;
 
 	/* strtok_r()'s position within the options list */
 	char *position = NULL;
 
+	assert(NULL != options);
+	assert(NULL != flags);
+	assert(NULL != data);
+
 	/* duplicate the options string */
-	options = strdup(options);
-	if (NULL == options) {
+	size = sizeof(char) * (1 + strlen(options));
+	copy = malloc(size);
+	if (NULL == copy) {
 		goto end;
 	}
+	(void) memcpy(copy, options, size);
 
-	/* allocate memory for unrecognize options */
-	*data = malloc(strlen(options));
+	/* allocate memory for unrecognized options */
+	*data = malloc(size);
 	if (NULL == *data) {
 		goto free_options;
 	}
 	(*data)[0] = '\0';
 
 	/* set the specified flags */
-	option = strtok_r((char *) options, ",", &position);
+	option = strtok_r(copy, ",", &position);
 	while (NULL != option) {
 		is_found = false;
 		for (i = 0; ARRAY_SIZE(g_options) > i; ++i) {
@@ -112,7 +125,7 @@ static bool _parse_options(const char *options, int *flags, char **data) {
 
 free_options:
 	/* free the options string */
-	free((void *) options);
+	free(copy);
 
 end:
 	return result;
@@ -130,6 +143,8 @@ static const char *_guess_type(const char *path) {
 
 	/* the return value */
 	const char *file_system = NULL;
+
+	assert(NULL != path);
 
 	/* open the device */
 	device = open(path, O_RDONLY);
@@ -181,6 +196,9 @@ static bool _mount_brute(const char *source,
 
 	/* the list of supported file systems */
 	FILE *list = NULL;
+
+	assert(NULL != source);
+	assert(NULL != dest);
 
 	/* open the list of supported file systems */
 	list = fopen("/proc/filesystems", "r");
