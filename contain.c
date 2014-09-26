@@ -7,8 +7,6 @@
 #include <sys/mount.h>
 #include <errno.h>
 #include <sys/prctl.h>
-#include <string.h>
-#include <stdbool.h>
 #include <assert.h>
 
 #include "common.h"
@@ -26,9 +24,6 @@
 /* the child process stack size */
 #define STACK_SIZE (8 * 1024)
 
-/* the process name, as seen inside the sandbox */
-#define PROCESS_NAME "init"
-
 /* possible exit codes, except EXIT_SUCCESS and EXIT_FAILURE */
 enum exit_codes {
 	EXIT_POWEROFF = 2,
@@ -38,52 +33,6 @@ enum exit_codes {
 
 /* the child process stack */
 static unsigned char stack[STACK_SIZE] = {0};
-
-static bool _set_process_name(char **argv) {
-	/* the length of a command-line argument */
-	size_t length = 0;
-
-	/* the return value */
-	bool result = false;
-
-	/* a command-line argument */
-	char **argument = NULL;
-
-	/* make sure the executable name isn't too short */
-	length = strlen(argv[0]);
-	if (STRLEN(PROCESS_NAME) > length) {
-		goto end;
-	}
-
-	/* set the process name */
-	if (-1 == prctl(PR_SET_NAME,
-	                (long) (intptr_t) (void *) PROCESS_NAME,
-	                0,
-	                0,
-	                0)) {
-		goto end;
-	}
-
-	/* change argv[0] and zero its end, if it's longer than the new name */
-	(void) strcpy(argv[0], PROCESS_NAME);
-	if ((1 + STRLEN(PROCESS_NAME)) <= length) {
-		(void) memset(&argv[0][1 + STRLEN(PROCESS_NAME)],
-		              '\0',
-		              length - (1 + STRLEN(PROCESS_NAME)));
-	}
-
-	/* zero the rest of the command-line */
-	for (argument = (1 + argv); NULL != *argument; ++argument) {
-		length = strlen(*argument);
-		(void) memset(*argument, '\0', length);
-	}
-
-	/* report success */
-	result = true;
-
-end:
-	return result;
-}
 
 static int _init(void *argv) {
 	/* a signal mask */
@@ -159,8 +108,8 @@ terminate_script:
 			exit(EXIT_FAILURE);
 	}
 
-	/* set the process name */
-	if (false == _set_process_name((char **) argv)) {
+	/* make the process a subreaper, so it reaps orphan processes */
+	if (0 != prctl(PR_SET_CHILD_SUBREAPER, 1UL, 0UL, 0UL, 0UL)) {
 		goto end;
 	}
 
