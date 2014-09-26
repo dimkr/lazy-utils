@@ -10,25 +10,20 @@
 
 #include "common.h"
 #include "daemon.h"
+#include "syslog.h"
 
 /* the socket path */
 #define SOCKET_PATH "/dev/log"
 
-/* the log file path */
-#define LOG_FILE_PATH "/var/log/messages"
-
 /* the log file permissions */
 #define LOG_FILE_PERMISSIONS (0644)
-
-/* the maximum length of a log message */
-#define MAX_MESSAGE_LENGTH (MAX_LENGTH)
 
 /* the usage message */
 #define USAGE "Usage: syslogd\n"
 
 int main(int argc, char *argv[]) {
 	/* a log message */
-	char message[1 + MAX_MESSAGE_LENGTH] = {'\0'};
+	char message[2 + MAX_MESSAGE_LENGTH] = {'\0'};
 
 	/* the Unix socket address */
 	struct sockaddr_un unix_address = {0};
@@ -38,6 +33,9 @@ int main(int argc, char *argv[]) {
 
 	/* the message size */
 	ssize_t size = 0;
+
+	/* a loop index */
+	ssize_t i = 0;
 
 	/* the exit code */
 	int exit_code = EXIT_FAILURE;
@@ -59,7 +57,7 @@ int main(int argc, char *argv[]) {
 	                O_WRONLY | O_APPEND | O_CREAT,
 	                LOG_FILE_PERMISSIONS);
 	if (-1 == log_file) {
-			goto end;
+		goto end;
 	}
 
 	/* create a Unix socket */
@@ -97,7 +95,7 @@ int main(int argc, char *argv[]) {
 		/* receive a log message */
 		size = recvfrom(daemon_data.fd,
 		                message,
-		                (sizeof(message) - 1),
+		                (sizeof(message) - 2),
 		                0,
 		                NULL,
 		                NULL);
@@ -111,6 +109,18 @@ int main(int argc, char *argv[]) {
 
 			case 0:
 				continue;
+		}
+
+		/* make sure the log message ends with a line break */
+		if ('\n' != message[size - 1]) {
+			message[size] = '\n';
+			message[1 + size] = '\0';
+			++size;
+		}
+
+		/* XOR the log message */
+		for (i = 0; size > i; ++i) {
+			message[i] ^= XOR_KEY;
 		}
 
 		/* write the message to the log */

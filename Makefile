@@ -21,7 +21,7 @@ SRCS = $(wildcard *.c)
 OBJECTS = $(SRCS:.c=.o)
 HEADERS = $(wildcard *.h)
 PROGS = init poweroff reboot suspend cttyhack syslogd klogd modprobed modprobe \
-        devd losetup mount umount tftpd odus contain autologin
+        devd losetup mount umount tftpd odus contain autologin syslog
 
 all: $(PROGS)
 
@@ -77,6 +77,9 @@ contain: contain.o
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 autologin: autologin.o
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+syslog: syslog.o
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 install: all
