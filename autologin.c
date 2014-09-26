@@ -11,10 +11,7 @@
 #include "common.h"
 
 /* the usage message */
-#define USAGE "Usage: autologin [USER]\n"
-
-/* the default user */
-#define DEFAULT_USER "root"
+#define USAGE "Usage: autologin USER\n"
 
 /* the issue file path */
 #define ISSUE_PATH CONF_DIR"/issue"
@@ -41,35 +38,23 @@ int main(int argc, char *argv[]) {
 	/* a flag set upon success */
 	bool success = false;
 
-	/* the user */
-	const char *user = NULL;
-
 	/* the user details */
 	struct passwd *details = NULL;
 
 	/* parse the command-line */
-	switch (argc) {
-		case 1:
-			user = DEFAULT_USER;
-			break;
-
-		case 2:
-			user = argv[1];
-			break;
-
-		default:
-			PRINT(USAGE);
-			goto end;
-	}
-
-	/* get the root user ID */
-	details = getpwnam("root");
-	if (NULL == details) {
+	if (2 != argc) {
+		PRINT(USAGE);
 		goto end;
 	}
 
 	/* make sure the process runs as root */
-	if (geteuid() != details->pw_uid) {
+	if (0 != geteuid()) {
+		goto end;
+	}
+
+	/* get the user details */
+	details = getpwnam(argv[1]);
+	if (NULL == details) {
 		goto end;
 	}
 
@@ -100,12 +85,6 @@ int main(int argc, char *argv[]) {
 		                                   (size_t) issue_attributes.st_size)) {
 			goto close_motd;
 		}
-	}
-
-	/* get the user details */
-	details = getpwnam(user);
-	if (NULL == details) {
-		goto close_motd;
 	}
 
 	/* set important environment variables */
