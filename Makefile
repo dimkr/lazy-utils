@@ -100,6 +100,7 @@ install: all
 	$(INSTALL) -D -m 755 odus $(DESTDIR)/$(BIN_DIR)/odus
 	$(INSTALL) -D -m 755 contain $(DESTDIR)/$(BIN_DIR)/contain
 	$(INSTALL) -D -m 755 autologin $(DESTDIR)/$(BIN_DIR)/autologin
+	$(INSTALL) -D -m 755 syslog $(DESTDIR)/$(BIN_DIR)/syslog
 
 	$(INSTALL) -D -m 644 init.8 $(DESTDIR)/$(MAN_DIR)/man8/init.8
 	$(INSTALL) -D -m 644 poweroff.8 $(DESTDIR)/$(MAN_DIR)/man8/poweroff.8
@@ -118,6 +119,7 @@ install: all
 	$(INSTALL) -D -m 644 odus.8 $(DESTDIR)/$(MAN_DIR)/man8/odus.8
 	$(INSTALL) -D -m 644 contain.8 $(DESTDIR)/$(MAN_DIR)/man8/contain.8
 	$(INSTALL) -D -m 644 autologin.1 $(DESTDIR)/$(MAN_DIR)/man1/autologin.1
+	$(INSTALL) -D -m 644 syslog.1 $(DESTDIR)/$(MAN_DIR)/man1/syslog.1
 
 	$(INSTALL) -D -m 644 README $(DESTDIR)/$(DOC_DIR)/lazy-utils/README
 	$(INSTALL) -m 644 AUTHORS $(DESTDIR)/$(DOC_DIR)/lazy-utils/AUTHORS
