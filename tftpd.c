@@ -558,6 +558,9 @@ static bool _handle_request(const char *path,
 	/* the transaction ID */
 	short tid = 0;
 
+	/* a substring */
+	char *position = NULL;
+
 	assert(NULL != path);
 	assert((PACKET_TYPE_RRQ == opcode) || (PACKET_TYPE_WRQ == opcode));
 	assert(0 < address_size);
@@ -604,10 +607,18 @@ static bool _handle_request(const char *path,
 		goto close_socket;
 	}
 
-	/* make sure the file doesn't contain a sub-director */
-	if (NULL != strchr(path, '/')) {
-		_send_error(s, ERROR_ACCESS_VIOLATION, client_address, address_size);
-		goto close_socket;
+	/* make sure the file doesn't contain a sub-directory */
+	position = strrchr(path, '/');
+	if (path == position) {
+		path = &path[1];
+	} else {
+		if (NULL != position) {
+			_send_error(s,
+			            ERROR_ACCESS_VIOLATION,
+			            client_address,
+			            address_size);
+			goto close_socket;
+		}
 	}
 
 	/* handle the request */
