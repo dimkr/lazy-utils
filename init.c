@@ -11,7 +11,7 @@
 #include "daemon.h"
 
 /* the init script path */
-#define INIT_SCRIPT_PATH CONF_DIR"/rc.d/rc.initramfs"
+#define INIT_SCRIPT_PATH CONF_DIR"/rc.d/rc.sysinit"
 
 /* the shutdown script path */
 #define SHUTDOWN_SCRIPT_PATH CONF_DIR"/rc.d/rc.shutdown"
