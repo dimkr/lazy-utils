@@ -99,10 +99,10 @@ int main(int argc, char *argv[]) {
 	}
 
 	/* change the process owner */
-	if (-1 == setgid(details->pw_uid)) {
+	if (-1 == setgid(details->pw_gid)) {
 		goto close_motd;
 	}
-	if (-1 == setegid(details->pw_uid)) {
+	if (-1 == setegid(details->pw_gid)) {
 		goto close_motd;
 	}
 	if (-1 == setuid(details->pw_uid)) {
