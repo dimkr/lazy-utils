@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
 		message[size] = '\0';
 
 		/* write the message to the system log */
-		syslog(priority, message + offset);
+		syslog(priority, "%s", message + offset);
 	} while (1);
 
 close_log:
